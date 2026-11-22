@@ -1,0 +1,29 @@
+/*
+Theme Name: PIN Universal FSE
+Theme URI: https://github.com/omarreact/WpBlockThemeFSE
+Author: PINCODE IT
+Description: A universal, content-neutral WordPress Full Site Editing block theme with native canvas and global styles.
+Version: 0.1.0
+Requires at least: 6.6
+Requires PHP: 8.1
+Text Domain: pin-universal-fse
+Tags: full-site-editing, block-styles, custom-colors, custom-logo, wide-blocks
+License: GPL-2.0-or-later
+*/
+:root { color-scheme: light; }
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; }
+.wp-site-blocks { min-height: 100vh; display: flex; flex-direction: column; }
+.wp-site-blocks > main { flex: 1; }
+.wp-site-blocks > * { margin-block-start: 0; }
+.wp-block-site-logo img,
+.wp-block-image img { max-width: 100%; height: auto; }
+.wp-block-post-content { overflow-wrap: anywhere; }
+.pin-header { border-bottom: 1px solid var(--wp--preset--color--border, #e4e7eb); }
+.pin-header .pin-header-inner { gap: clamp(12px, 2vw, 24px); }
+.pin-footer { border-top: 1px solid var(--wp--preset--color--border, #e4e7eb); }
+.pin-site-container { width: min(100% - 32px, var(--wp--style--global--wide-size, 1200px)); margin-inline: auto; }
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+}
