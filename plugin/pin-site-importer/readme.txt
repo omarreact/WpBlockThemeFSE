@@ -2,7 +2,7 @@
 Contributors: pincodeit
 Requires at least: 6.6
 Requires PHP: 8.1
-Stable tag: 0.3.1
+Stable tag: 0.3.2
 License: GPL-2.0-or-later
 
 GitHub/static-HTML to native WordPress Gutenberg importer bundled with
@@ -70,3 +70,6 @@ Auto mode prefers site-manifest.json/content.json with optional design-tokens.js
 then WordPress WXR/XML exports, then rendered HTML. WXR imports posts/pages,
 hierarchy, public custom fields, categories and tags. JSON pages are normalized
 through the same Gutenberg/FSE pipeline used by HTML imports.
+
+= 0.3.2 =
+* Added API-free structured JSON fast path for public repositories with an explicit branch, avoiding GitHub metadata/tree rate limits when site-manifest.json or content.json is present.
