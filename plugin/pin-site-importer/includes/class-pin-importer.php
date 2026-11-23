@@ -359,6 +359,67 @@ final class PIN_Site_Importer_Importer {
             $result['page_ids'][] = $post_id;
         }
 
+        if ( $apply_global && (int) $result['pages_failed'] > 0 ) {
+            $apply_global = false;
+            $result['global_applied'] = false;
+            $result['warnings'][] = __(
+                'Global application was cancelled because one or more pages failed to import. Review the warnings and re-import successfully before changing the live global layout.',
+                'pin-site-importer'
+            );
+        }
+
+        if ( $set_home ) {
+            if ( ! $apply_global ) {
+                $result['warnings'][] = __(
+                    'The WordPress homepage was not changed because global application was not enabled for a fully successful published import.',
+                    'pin-site-importer'
+                );
+            } else {
+                $home_path = $this->find_home_path( $html_files, $source_dir );
+
+                if ( $home_path && isset( $page_map[ $home_path ] ) ) {
+                    $home_id      = (int) $page_map[ $home_path ];
+                    $old_home_url = get_permalink( $home_id );
+
+                    update_option( 'show_on_front', 'page' );
+                    update_option( 'page_on_front', $home_id );
+
+                    $new_home_url = get_permalink( $home_id );
+                    $result['home_page_id'] = $home_id;
+
+                    if ( $old_home_url && $new_home_url && $old_home_url !== $new_home_url ) {
+                        foreach ( (array) $result['page_ids'] as $page_id ) {
+                            $page_id = (int) $page_id;
+                            $post    = get_post( $page_id );
+
+                            if ( ! $post || false === strpos( (string) $post->post_content, $old_home_url ) ) {
+                                continue;
+                            }
+
+                            wp_update_post(
+                                array(
+                                    'ID'           => $page_id,
+                                    'post_content' => str_replace(
+                                        $old_home_url,
+                                        $new_home_url,
+                                        (string) $post->post_content
+                                    ),
+                                )
+                            );
+                        }
+
+                        foreach ( array( 'header', 'footer' ) as $area ) {
+                            $template_part_payload[ $area ] = str_replace(
+                                $old_home_url,
+                                $new_home_url,
+                                (string) $template_part_payload[ $area ]
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
         if ( $import_template_parts ) {
             foreach ( array( 'header', 'footer' ) as $area ) {
                 $part_content = trim( (string) ( $template_part_payload[ $area ] ?? '' ) );
@@ -418,23 +479,6 @@ final class PIN_Site_Importer_Importer {
                 $result['warnings'][] = $navigation_id->get_error_message();
             } else {
                 $result['navigation_id'] = (int) $navigation_id;
-            }
-        }
-
-        if ( $set_home ) {
-            if ( ! $apply_global ) {
-                $result['warnings'][] = __(
-                    'The WordPress homepage was not changed because global application was not enabled for a published import.',
-                    'pin-site-importer'
-                );
-            } else {
-                $home_path = $this->find_home_path( $html_files, $source_dir );
-
-                if ( $home_path && isset( $page_map[ $home_path ] ) ) {
-                    update_option( 'show_on_front', 'page' );
-                    update_option( 'page_on_front', (int) $page_map[ $home_path ] );
-                    $result['home_page_id'] = (int) $page_map[ $home_path ];
-                }
             }
         }
 
