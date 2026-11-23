@@ -37,7 +37,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
     }
 
     /**
-     * @return array{title:string,content:string,images:array<string,string>,stylesheets:string[]}|WP_Error
+     * @return array{title:string,content:string,images:array<string,string>,stylesheets:string[],scripts:array<int,array<string,string>>}|WP_Error
      */
     public function convert( string $html ) {
         if ( ! class_exists( 'DOMDocument' ) ) {
@@ -109,6 +109,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             'content'     => trim( $content ),
             'images'      => $images,
             'stylesheets' => $this->extract_stylesheets( $xpath ),
+            'scripts'     => $this->extract_scripts( $xpath ),
         );
     }
 
@@ -448,6 +449,56 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         }
 
         return array_values( array_unique( $stylesheets ) );
+    }
+
+    /**
+     * @return array<int,array<string,string>>
+     */
+    private function extract_scripts( DOMXPath $xpath ): array {
+        $scripts = array();
+
+        foreach ( $xpath->query( '//script[@src]' ) as $script ) {
+            if ( ! $script instanceof DOMElement ) {
+                continue;
+            }
+
+            $src = trim( $script->getAttribute( 'src' ) );
+
+            if ( '' === $src || preg_match( '~^https?://~i', $src ) || str_starts_with( $src, '//' ) ) {
+                continue;
+            }
+
+            $path = $this->resolve_site_path( $src );
+            $ext  = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
+
+            if ( ! in_array( $ext, array( 'js', 'mjs' ), true ) ) {
+                continue;
+            }
+
+            $type = strtolower( trim( $script->getAttribute( 'type' ) ) );
+            $strategy = '';
+
+            if ( $script->hasAttribute( 'async' ) ) {
+                $strategy = 'async';
+            } elseif ( $script->hasAttribute( 'defer' ) ) {
+                $strategy = 'defer';
+            }
+
+            $scripts[] = array(
+                'path'     => $path,
+                'type'     => 'module' === $type ? 'module' : 'classic',
+                'strategy' => $strategy,
+            );
+        }
+
+        $unique = array();
+
+        foreach ( $scripts as $script ) {
+            $key = $script['path'] . '|' . $script['type'] . '|' . $script['strategy'];
+            $unique[ $key ] = $script;
+        }
+
+        return array_values( $unique );
     }
 
     private function extract_title( DOMXPath $xpath ): string {
