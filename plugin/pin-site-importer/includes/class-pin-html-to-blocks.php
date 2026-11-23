@@ -14,6 +14,8 @@ final class PIN_Site_Importer_HTML_To_Blocks {
     private string $branch;
     private string $source_path;
     private string $source_root;
+    /** @var array<string,string> */
+    private array $inline_css_rules = array();
 
     /**
      * @param array<string,int> $page_map
@@ -37,7 +39,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
     }
 
     /**
-     * @return array{title:string,content:string,images:array<string,string>,stylesheets:string[],scripts:array<int,array<string,string>>}|WP_Error
+     * @return array{title:string,content:string,images:array<string,string>,stylesheets:string[],scripts:array<int,array<string,string>>,inline_css:string}|WP_Error
      */
     public function convert( string $html ) {
         if ( ! class_exists( 'DOMDocument' ) ) {
@@ -47,6 +49,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             );
         }
 
+        $this->inline_css_rules = array();
         $document = new DOMDocument();
         $previous = libxml_use_internal_errors( true );
 
@@ -110,6 +113,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             'images'      => $images,
             'stylesheets' => $this->extract_stylesheets( $xpath ),
             'scripts'     => $this->extract_scripts( $xpath ),
+            'inline_css'  => implode( "\n", array_values( $this->inline_css_rules ) ),
         );
     }
 
@@ -569,6 +573,18 @@ final class PIN_Site_Importer_HTML_To_Blocks {
 
             if ( '' !== $class && ! str_starts_with( $class, 'wp-' ) ) {
                 $out[] = $class;
+            }
+        }
+
+        $style = trim( $node->getAttribute( 'style' ) );
+
+        if ( '' !== $style ) {
+            $safe_style = safecss_filter_attr( $style );
+
+            if ( '' !== $safe_style ) {
+                $generated = 'pin-inline-' . substr( md5( $safe_style ), 0, 10 );
+                $out[] = $generated;
+                $this->inline_css_rules[ $generated ] = '.' . $generated . '{' . $safe_style . '}';
             }
         }
 
