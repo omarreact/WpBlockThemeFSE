@@ -42,3 +42,38 @@ jobs:
         run: |
           grep -q "Version: 0.2.0" style.css
           grep -q "Version: 0.2.0" plugin/pin-site-importer/pin-site-importer.php
+
+  wordpress-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install wp-env
+        run: npm install --global @wordpress/env
+
+      - name: Start WordPress
+        run: wp-env start
+
+      - name: Activate theme
+        run: wp-env run cli wp theme activate pin-universal-fse
+
+      - name: Trigger bundled companion installation
+        run: |
+          wp-env run cli wp eval 'wp_set_current_user(1); do_action("admin_init");'
+
+      - name: Verify companion plugin
+        run: wp-env run cli wp plugin is-active pin-site-importer
+
+      - name: Run WordPress smoke test
+        run: wp-env run cli wp eval-file wp-content/themes/pin-universal-fse/tests/wp-smoke.php
+
+      - name: Stop WordPress
+        if: always()
+        run: wp-env stop
