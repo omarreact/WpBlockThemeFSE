@@ -39,7 +39,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
     }
 
     /**
-     * @return array{title:string,content:string,images:array<string,string>,stylesheets:string[],scripts:array<int,array<string,string>>,inline_css:string}|WP_Error
+     * @return array{title:string,content:string,images:array<string,array{url:string,path:string}>,stylesheets:string[],scripts:array<int,array<string,string>>,inline_css:string}|WP_Error
      */
     public function convert( string $html ) {
         if ( ! class_exists( 'DOMDocument' ) ) {
@@ -97,7 +97,10 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             $resolved = $this->resolve_asset_url( $source );
 
             if ( '' !== $resolved ) {
-                $images[ $source ] = $resolved;
+                $images[ $source ] = array(
+                    'url'  => $resolved,
+                    'path' => preg_match( '~^https?://~i', $source ) ? '' : $this->resolve_site_path( $source ),
+                );
             }
         }
 
@@ -118,7 +121,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
     }
 
     /**
-     * @param array<string,string> $images
+     * @param array<string,array{url:string,path:string}> $images
      */
     private function node_to_block( DOMNode $node, array &$images ): string {
         if ( XML_TEXT_NODE === $node->nodeType ) {
@@ -302,7 +305,10 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         $alt      = sanitize_text_field( $node->getAttribute( 'alt' ) );
         $class    = $this->class_attribute( $node );
 
-        $images[ $src ] = $resolved;
+        $images[ $src ] = array(
+            'url'  => $resolved,
+            'path' => preg_match( '~^https?://~i', $src ) ? '' : $this->resolve_site_path( $src ),
+        );
 
         $attrs = array(
             'sizeSlug'        => 'full',
