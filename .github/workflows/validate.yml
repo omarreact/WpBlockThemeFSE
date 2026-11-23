@@ -93,3 +93,33 @@ jobs:
       - name: Stop WordPress
         if: always()
         run: wp-env stop
+
+
+  package:
+    runs-on: ubuntu-latest
+    needs:
+      - validate
+      - wordpress-integration
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build installable theme ZIP
+        run: bash scripts/package-theme.sh
+
+      - name: Verify package contents
+        run: |
+          test -f dist/pin-universal-fse.zip
+          unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/style.css'
+          unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/plugin/pin-site-importer/pin-site-importer.php'
+          if unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/tests/'; then
+            echo "Development tests must not ship in the installable theme package."
+            exit 1
+          fi
+
+      - name: Upload installable theme
+        uses: actions/upload-artifact@v4
+        with:
+          name: pin-universal-fse
+          path: dist/pin-universal-fse.zip
+          if-no-files-found: error
