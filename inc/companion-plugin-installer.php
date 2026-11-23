@@ -143,15 +143,27 @@ function pin_universal_fse_install_companion() {
 
     $plugin_file = PIN_UNIVERSAL_FSE_COMPANION_PLUGIN;
     $target_file = trailingslashit( WP_PLUGIN_DIR ) . $plugin_file;
+    $source_file = trailingslashit( pin_universal_fse_companion_source_dir() ) . 'pin-site-importer.php';
+    $target_dir  = pin_universal_fse_companion_target_dir();
+    $should_copy = ! file_exists( $target_file );
 
-    if ( ! file_exists( $target_file ) ) {
-        $target_dir = pin_universal_fse_companion_target_dir();
+    if ( file_exists( $target_file ) && file_exists( $source_file ) ) {
+        $source_data = get_plugin_data( $source_file, false, false );
+        $target_data = get_plugin_data( $target_file, false, false );
+        $source_version = (string) ( $source_data['Version'] ?? '0.0.0' );
+        $target_version = (string) ( $target_data['Version'] ?? '0.0.0' );
 
-        if ( file_exists( $target_dir ) ) {
+        if ( version_compare( $target_version, $source_version, '<' ) ) {
+            $should_copy = true;
+        }
+    }
+
+    if ( $should_copy ) {
+        if ( file_exists( $target_dir ) && ! is_dir( $target_dir ) ) {
             return new WP_Error(
                 'pin_companion_partial_install',
                 __(
-                    'A PIN Site Importer directory already exists but its main plugin file is missing. Remove or repair that directory before retrying.',
+                    'The PIN Site Importer destination exists but is not a directory.',
                     'pin-universal-fse'
                 )
             );
@@ -180,6 +192,41 @@ function pin_universal_fse_install_companion() {
 
     return true;
 }
+
+/**
+ * Queue a companion sync when the bundled plugin is newer than the installed
+ * copy. This keeps theme and plugin releases aligned while preserving the
+ * plugin as a normal WordPress plugin.
+ */
+function pin_universal_fse_maybe_queue_companion_sync(): void {
+    if ( ! current_user_can( 'install_plugins' ) ) {
+        return;
+    }
+
+    require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+    $source_file = trailingslashit( pin_universal_fse_companion_source_dir() ) . 'pin-site-importer.php';
+    $target_file = trailingslashit( WP_PLUGIN_DIR ) . PIN_UNIVERSAL_FSE_COMPANION_PLUGIN;
+
+    if ( ! file_exists( $source_file ) ) {
+        return;
+    }
+
+    if ( ! file_exists( $target_file ) ) {
+        update_option( PIN_UNIVERSAL_FSE_COMPANION_PENDING, '1', false );
+        return;
+    }
+
+    $source_data = get_plugin_data( $source_file, false, false );
+    $target_data = get_plugin_data( $target_file, false, false );
+    $source_version = (string) ( $source_data['Version'] ?? '0.0.0' );
+    $target_version = (string) ( $target_data['Version'] ?? '0.0.0' );
+
+    if ( version_compare( $target_version, $source_version, '<' ) ) {
+        update_option( PIN_UNIVERSAL_FSE_COMPANION_PENDING, '1', false );
+    }
+}
+add_action( 'admin_init', 'pin_universal_fse_maybe_queue_companion_sync', 5 );
 
 /**
  * Attempt automatic install on the first admin request after activation.
