@@ -24,6 +24,7 @@ final class PIN_Site_Importer_Importer {
         $import_scripts = ! empty( $args['import_scripts'] );
         $set_home       = ! empty( $args['set_home'] );
         $create_navigation = ! empty( $args['create_navigation'] );
+        $import_template_parts = ! empty( $args['import_template_parts'] );
         $github         = new PIN_Site_Importer_GitHub_Client( $token );
         $repository     = $github->inspect_repository( $repo_url, $branch );
 
@@ -63,6 +64,12 @@ final class PIN_Site_Importer_Importer {
             );
         }
 
+        $preferred_template_source = $this->find_home_path( $html_files, $source_dir );
+
+        if ( '' === $preferred_template_source ) {
+            $preferred_template_source = (string) $html_files[0];
+        }
+
         $page_map = $this->create_page_placeholders(
             $repository['full_name'],
             $repository['branch'],
@@ -89,6 +96,7 @@ final class PIN_Site_Importer_Importer {
             'warnings'         => array(),
             'page_ids'         => array(),
             'navigation_id'    => 0,
+            'template_parts'   => array(),
         );
 
         if ( count( $repository['html_files'] ) > self::MAX_PAGES ) {
@@ -98,6 +106,12 @@ final class PIN_Site_Importer_Importer {
                 self::MAX_PAGES
             );
         }
+
+        $template_part_payload = array(
+            'header' => '',
+            'footer' => '',
+            'css'    => '',
+        );
 
         foreach ( $html_files as $path ) {
             $post_id = $page_map[ $path ] ?? 0;
@@ -138,13 +152,29 @@ final class PIN_Site_Importer_Importer {
                 continue;
             }
 
-            $content = $converted['content'];
+            $content        = $converted['content'];
+            $header_content = (string) ( $converted['header_content'] ?? '' );
+            $footer_content = (string) ( $converted['footer_content'] ?? '' );
 
             if ( $import_media && ! empty( $converted['images'] ) ) {
                 $media_result = $this->sideload_images( $post_id, $content, $converted['images'], $github, $repository );
                 $content      = $media_result['content'];
                 $result['media_imported'] += $media_result['count'];
                 $result['warnings']        = array_merge( $result['warnings'], $media_result['warnings'] );
+
+                if ( '' !== $header_content ) {
+                    $header_media = $this->sideload_images( $post_id, $header_content, $converted['images'], $github, $repository );
+                    $header_content = $header_media['content'];
+                    $result['media_imported'] += $header_media['count'];
+                    $result['warnings'] = array_merge( $result['warnings'], $header_media['warnings'] );
+                }
+
+                if ( '' !== $footer_content ) {
+                    $footer_media = $this->sideload_images( $post_id, $footer_content, $converted['images'], $github, $repository );
+                    $footer_content = $footer_media['content'];
+                    $result['media_imported'] += $footer_media['count'];
+                    $result['warnings'] = array_merge( $result['warnings'], $footer_media['warnings'] );
+                }
             }
 
             $title = '' !== $converted['title']
@@ -166,6 +196,8 @@ final class PIN_Site_Importer_Importer {
                 $result['warnings'][] = $updated->get_error_message();
                 continue;
             }
+
+            $page_css = '';
 
             if ( $import_css ) {
                 $page_css = trim( (string) ( $converted['inline_css'] ?? '' ) );
@@ -216,6 +248,12 @@ final class PIN_Site_Importer_Importer {
                 delete_post_meta( $post_id, '_pin_import_scripts' );
             }
 
+            if ( $path === $preferred_template_source ) {
+                $template_part_payload['header'] = $header_content;
+                $template_part_payload['footer'] = $footer_content;
+                $template_part_payload['css']    = $page_css;
+            }
+
             update_post_meta( $post_id, '_pin_import_source_repo', $repository['full_name'] );
             update_post_meta( $post_id, '_pin_import_source_branch', $repository['branch'] );
             update_post_meta( $post_id, '_pin_import_source_path', $path );
@@ -223,6 +261,35 @@ final class PIN_Site_Importer_Importer {
 
             ++$result['pages_imported'];
             $result['page_ids'][] = $post_id;
+        }
+
+        if ( $import_template_parts ) {
+            foreach ( array( 'header', 'footer' ) as $area ) {
+                $part_content = trim( (string) ( $template_part_payload[ $area ] ?? '' ) );
+
+                if ( '' === $part_content ) {
+                    continue;
+                }
+
+                $part_id = $this->upsert_template_part(
+                    $area,
+                    $part_content,
+                    $repository['full_name'],
+                    $repository['branch'],
+                    (string) $preferred_template_source
+                );
+
+                if ( is_wp_error( $part_id ) ) {
+                    $result['warnings'][] = $part_id->get_error_message();
+                    continue;
+                }
+
+                if ( '' !== (string) $template_part_payload['css'] ) {
+                    update_post_meta( $part_id, '_pin_import_css', (string) $template_part_payload['css'] );
+                }
+
+                $result['template_parts'][ $area ] = (int) $part_id;
+            }
         }
 
         if ( $create_navigation ) {
@@ -550,6 +617,97 @@ final class PIN_Site_Importer_Importer {
             },
             $css
         );
+    }
+
+    /**
+     * Create a database-backed FSE template part for the active theme.
+     * Existing user-created parts are never overwritten unless they were
+     * previously created by this importer for the same repository.
+     *
+     * @return int|WP_Error
+     */
+    private function upsert_template_part(
+        string $area,
+        string $content,
+        string $repository,
+        string $branch,
+        string $source_path
+    ) {
+        if ( ! post_type_exists( 'wp_template_part' ) ) {
+            return new WP_Error(
+                'pin_template_part_post_type_missing',
+                __( 'WordPress template-part storage is unavailable.', 'pin-site-importer' )
+            );
+        }
+
+        $theme = get_stylesheet();
+        $existing = get_posts(
+            array(
+                'post_type'      => 'wp_template_part',
+                'post_status'    => array( 'publish', 'draft', 'auto-draft' ),
+                'posts_per_page' => 1,
+                'name'           => $area,
+                'tax_query'      => array(
+                    array(
+                        'taxonomy' => 'wp_theme',
+                        'field'    => 'name',
+                        'terms'    => $theme,
+                    ),
+                ),
+            )
+        );
+
+        $postarr = array(
+            'post_type'    => 'wp_template_part',
+            'post_status'  => 'publish',
+            'post_name'    => $area,
+            'post_title'   => 'header' === $area
+                ? __( 'Imported Site Header', 'pin-site-importer' )
+                : __( 'Imported Site Footer', 'pin-site-importer' ),
+            'post_content' => $content,
+        );
+
+        if ( $existing ) {
+            $existing_id = (int) $existing[0]->ID;
+            $owner_repo  = (string) get_post_meta( $existing_id, '_pin_import_source_repo', true );
+
+            if ( '' !== $owner_repo && $repository === $owner_repo ) {
+                $postarr['ID'] = $existing_id;
+            } else {
+                return new WP_Error(
+                    'pin_template_part_user_override',
+                    sprintf(
+                        /* translators: %s: template part area. */
+                        __( 'The existing %s template part appears to be user-managed, so the importer left it unchanged.', 'pin-site-importer' ),
+                        $area
+                    )
+                );
+            }
+        }
+
+        $post_id = wp_insert_post( $postarr, true );
+
+        if ( is_wp_error( $post_id ) ) {
+            return $post_id;
+        }
+
+        $theme_term = wp_set_object_terms( $post_id, $theme, 'wp_theme', false );
+
+        if ( is_wp_error( $theme_term ) ) {
+            return $theme_term;
+        }
+
+        $area_term = wp_set_object_terms( $post_id, $area, 'wp_template_part_area', false );
+
+        if ( is_wp_error( $area_term ) ) {
+            return $area_term;
+        }
+
+        update_post_meta( $post_id, '_pin_import_source_repo', $repository );
+        update_post_meta( $post_id, '_pin_import_source_branch', $branch );
+        update_post_meta( $post_id, '_pin_import_source_path', $source_path );
+
+        return (int) $post_id;
     }
 
     /**
