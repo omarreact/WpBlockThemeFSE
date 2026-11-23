@@ -501,9 +501,39 @@ pin_smoke_assert( ! is_wp_error( $wxr_result ), 'WXR import failed.' );
 pin_smoke_assert( 'wxr' === ( $wxr_result['source_mode'] ?? '' ), 'WXR mode was not selected.' );
 pin_smoke_assert( 3 === (int) ( $wxr_result['pages_imported'] ?? 0 ), 'WXR items were not imported.' );
 pin_smoke_assert( 1 === (int) ( $wxr_result['comments_imported'] ?? 0 ), 'WXR comments were not imported.' );
-$wxr_parent = get_page_by_path( 'wxr-parent', OBJECT, 'page' );
-$wxr_child  = get_page_by_path( 'wxr-child', OBJECT, 'page' );
-$wxr_post   = get_page_by_path( 'wxr-post', OBJECT, 'post' );
+$wxr_parent_ids = get_posts(
+    array(
+        'post_type'      => 'page',
+        'post_status'    => 'any',
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+        'meta_key'       => '_pin_import_wxr_id',
+        'meta_value'     => '101',
+    )
+);
+$wxr_child_ids = get_posts(
+    array(
+        'post_type'      => 'page',
+        'post_status'    => 'any',
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+        'meta_key'       => '_pin_import_wxr_id',
+        'meta_value'     => '102',
+    )
+);
+$wxr_post_ids = get_posts(
+    array(
+        'post_type'      => 'post',
+        'post_status'    => 'any',
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+        'meta_key'       => '_pin_import_wxr_id',
+        'meta_value'     => '103',
+    )
+);
+$wxr_parent = ! empty( $wxr_parent_ids ) ? get_post( (int) $wxr_parent_ids[0] ) : null;
+$wxr_child  = ! empty( $wxr_child_ids ) ? get_post( (int) $wxr_child_ids[0] ) : null;
+$wxr_post   = ! empty( $wxr_post_ids ) ? get_post( (int) $wxr_post_ids[0] ) : null;
 pin_smoke_assert( $wxr_parent && $wxr_child && $wxr_post, 'WXR posts/pages were not created.' );
 pin_smoke_assert( (int) $wxr_child->post_parent === (int) $wxr_parent->ID, 'WXR page hierarchy was not restored.' );
 pin_smoke_assert( 'fixture-value' === (string) get_post_meta( $wxr_parent->ID, 'fixture_key', true ), 'WXR public post meta was not imported.' );
