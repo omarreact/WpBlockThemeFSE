@@ -259,6 +259,7 @@ delete_option( 'pin_site_importer_navigation_id' );
 // Real GitHub -> WordPress end-to-end import using the repository fixture.
 $source_repo   = (string) get_option( 'pin_smoke_source_repo', '' );
 $source_branch = (string) get_option( 'pin_smoke_source_branch', '' );
+$source_token  = (string) get_option( 'pin_smoke_github_token', '' );
 $previous_show_on_front = get_option( 'show_on_front' );
 $previous_page_on_front = get_option( 'page_on_front' );
 
@@ -268,6 +269,7 @@ $e2e = $importer->run(
     array(
         'repo_url'                => $source_repo,
         'branch'                  => $source_branch,
+        'token'                   => $source_token,
         'source_dir'              => 'tests/fixtures/static-site',
         'post_status'             => 'publish',
         'import_media'            => true,
@@ -440,6 +442,7 @@ $structured = $importer->run(
     array(
         'repo_url'          => $source_repo,
         'branch'            => $source_branch,
+        'token'             => $source_token,
         'source_dir'        => 'tests/fixtures/structured-site',
         'source_format'     => 'json',
         'post_status'       => 'draft',
@@ -488,6 +491,7 @@ $wxr_result = $importer->run(
     array(
         'repo_url'      => $source_repo,
         'branch'        => $source_branch,
+        'token'         => $source_token,
         'source_dir'    => 'tests/fixtures/wxr-site',
         'source_format' => 'wxr',
         'post_status'   => 'publish',
@@ -511,5 +515,6 @@ foreach ( (array) $wxr_result['page_ids'] as $wxr_post_id ) {
 
 delete_option( 'pin_smoke_source_repo' );
 delete_option( 'pin_smoke_source_branch' );
+delete_option( 'pin_smoke_github_token' );
 
 fwrite( STDOUT, "PIN Universal FSE WordPress smoke test passed.\n" );
