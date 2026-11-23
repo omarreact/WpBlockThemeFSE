@@ -39,7 +39,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
     }
 
     /**
-     * @return array{title:string,content:string,header_content:string,footer_content:string,images:array<string,array{url:string,path:string}>,stylesheets:string[],scripts:array<int,array<string,string>>,inline_css:string}|WP_Error
+     * @return array{title:string,content:string,header_content:string,footer_content:string,images:array<string,array{url:string,path:string}>,stylesheets:string[],external_stylesheets:string[],scripts:array<int,array<string,string>>,inline_css:string}|WP_Error
      */
     public function convert( string $html ) {
         if ( ! class_exists( 'DOMDocument' ) ) {
@@ -137,7 +137,8 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             'header_content' => trim( $header_content ),
             'footer_content' => trim( $footer_content ),
             'images'      => $images,
-            'stylesheets' => $this->extract_stylesheets( $xpath ),
+            'stylesheets'          => $this->extract_stylesheets( $xpath ),
+            'external_stylesheets' => $this->extract_external_stylesheets( $xpath ),
             'scripts'     => $this->extract_scripts( $xpath ),
             'inline_css'  => implode( "\n", array_values( $this->inline_css_rules ) ),
         );
@@ -537,8 +538,14 @@ final class PIN_Site_Importer_HTML_To_Blocks {
     private function extract_stylesheets( DOMXPath $xpath ): array {
         $stylesheets = array();
 
-        foreach ( $xpath->query( '//link[@rel="stylesheet"][@href]' ) as $link ) {
+        foreach ( $xpath->query( '//link[@href]' ) as $link ) {
             if ( ! $link instanceof DOMElement ) {
+                continue;
+            }
+
+            $rel = strtolower( trim( $link->getAttribute( 'rel' ) ) );
+
+            if ( ! preg_match( '/(?:^|\s)stylesheet(?:\s|$)/', $rel ) ) {
                 continue;
             }
 
@@ -552,6 +559,43 @@ final class PIN_Site_Importer_HTML_To_Blocks {
 
             if ( 'css' === strtolower( pathinfo( $path, PATHINFO_EXTENSION ) ) ) {
                 $stylesheets[] = $path;
+            }
+        }
+
+        return array_values( array_unique( $stylesheets ) );
+    }
+
+    /**
+     * @return string[]
+     */
+    private function extract_external_stylesheets( DOMXPath $xpath ): array {
+        $stylesheets = array();
+
+        foreach ( $xpath->query( '//link[@href]' ) as $link ) {
+            if ( ! $link instanceof DOMElement ) {
+                continue;
+            }
+
+            $rel = strtolower( trim( $link->getAttribute( 'rel' ) ) );
+
+            if ( ! preg_match( '/(?:^|\s)stylesheet(?:\s|$)/', $rel ) ) {
+                continue;
+            }
+
+            $href = trim( $link->getAttribute( 'href' ) );
+
+            if ( str_starts_with( $href, '//' ) ) {
+                $href = 'https:' . $href;
+            }
+
+            if ( ! preg_match( '~^https?://~i', $href ) ) {
+                continue;
+            }
+
+            $url = esc_url_raw( $href, array( 'http', 'https' ) );
+
+            if ( '' !== $url ) {
+                $stylesheets[] = $url;
             }
         }
 
