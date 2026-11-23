@@ -28,6 +28,8 @@ COMPANION PLUGIN RESPONSIBILITIES
 - Public repositories plus optional per-request GitHub token for private repos.
   Tokens are never stored.
 - Optional branch and static build-folder selection, e.g. out/ or dist/.
+- Automatic detection/selection of a clear common static output root when the
+  repository has no root-level HTML (out/, dist/, build/, public/, site/, docs/).
 - Technology detection and bounded static HTML discovery.
 - HTML to native Gutenberg core-block conversion for headings, paragraphs,
   images, lists, quotes, tables, buttons, structural groups and navigation.
@@ -92,6 +94,8 @@ GitHub Actions currently performs:
 - WordPress parent/child page hierarchy.
 - Database-backed FSE template-part creation and taxonomy assignment.
 - Imported navigation injection and source-navigation preservation.
+- Installable pin-universal-fse.zip packaging with the companion plugin bundled
+  and development-only tests excluded.
 - Real GitHub fixture ingestion into WordPress, including pages, hierarchy,
   CSS/JavaScript/static assets, FSE template parts and navigation.
 - Gutenberg editor-canvas style injection.
@@ -104,5 +108,8 @@ Media Library limits and server resource limits vary by provider.
 CURRENT DEVELOPMENT
 Development is in PR #1 on branch feat/bundled-companion-plugin. main is not
 modified by this work until the PR is explicitly approved and merged.
+
+The validation workflow also produces an installable pin-universal-fse.zip
+artifact after both static validation and WordPress integration tests pass.
 
 No production site or domain is changed by this repository alone.
