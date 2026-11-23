@@ -460,7 +460,6 @@ $structured = $importer->run(
     array(
         'repo_url'          => $source_repo,
         'branch'            => $source_branch,
-        'token'             => $source_token,
         'source_dir'        => 'tests/fixtures/structured-site',
         'source_format'     => 'json',
         'post_status'       => 'draft',
@@ -474,8 +473,9 @@ $structured = $importer->run(
         'apply_global'      => false,
     )
 );
-pin_smoke_assert( ! is_wp_error( $structured ), 'Structured JSON import failed.' );
+pin_smoke_assert( ! is_wp_error( $structured ), is_wp_error( $structured ) ? 'API-free structured JSON import failed: ' . $structured->get_error_message() : 'Structured JSON import failed.' );
 pin_smoke_assert( 'json' === ( $structured['source_mode'] ?? '' ), 'Structured JSON mode was not selected.' );
+pin_smoke_assert( 'Structured JSON' === ( $structured['technology'] ?? '' ), 'API-free structured import did not bypass repository technology discovery.' );
 pin_smoke_assert( 2 === (int) ( $structured['pages_imported'] ?? 0 ), 'Structured JSON pages were not imported.' );
 pin_smoke_assert( ! empty( $structured['template_parts']['header'] ) && ! empty( $structured['template_parts']['footer'] ), 'Structured header/footer were not imported as FSE template parts.' );
 $structured_home = get_posts(
