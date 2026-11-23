@@ -21,6 +21,7 @@ final class PIN_Site_Importer_Importer {
         $import_media   = ! empty( $args['import_media'] );
         $import_css     = ! empty( $args['import_css'] );
         $set_home       = ! empty( $args['set_home'] );
+        $create_navigation = ! empty( $args['create_navigation'] );
         $github         = new PIN_Site_Importer_GitHub_Client( $token );
         $repository     = $github->inspect_repository( $repo_url, $branch );
 
@@ -63,6 +64,7 @@ final class PIN_Site_Importer_Importer {
             'css_files'        => 0,
             'warnings'         => array(),
             'page_ids'         => array(),
+            'navigation_id'    => 0,
         );
 
         if ( count( $repository['html_files'] ) > self::MAX_PAGES ) {
@@ -163,6 +165,16 @@ final class PIN_Site_Importer_Importer {
 
             ++$result['pages_imported'];
             $result['page_ids'][] = $post_id;
+        }
+
+        if ( $create_navigation ) {
+            $navigation_id = $this->create_navigation( $page_map, $repository['full_name'] );
+
+            if ( is_wp_error( $navigation_id ) ) {
+                $result['warnings'][] = $navigation_id->get_error_message();
+            } else {
+                $result['navigation_id'] = (int) $navigation_id;
+            }
         }
 
         if ( $set_home ) {
@@ -392,6 +404,85 @@ final class PIN_Site_Importer_Importer {
             },
             $css
         );
+    }
+
+    /**
+     * Build or refresh a WordPress Navigation entity from imported pages.
+     *
+     * @param array<string,int> $page_map
+     * @return int|WP_Error
+     */
+    private function create_navigation( array $page_map, string $repository ) {
+        if ( ! post_type_exists( 'wp_navigation' ) ) {
+            return new WP_Error(
+                'pin_navigation_post_type_missing',
+                __( 'WordPress Navigation storage is not available on this installation.', 'pin-site-importer' )
+            );
+        }
+
+        $content = '';
+
+        foreach ( $page_map as $path => $post_id ) {
+            $post = get_post( $post_id );
+
+            if ( ! $post || 'trash' === $post->post_status ) {
+                continue;
+            }
+
+            $label = get_the_title( $post_id );
+
+            if ( '' === trim( $label ) ) {
+                $label = $this->fallback_title( $path );
+            }
+
+            $attrs = array(
+                'label'          => $label,
+                'type'           => 'page',
+                'id'             => (int) $post_id,
+                'url'            => get_permalink( $post_id ),
+                'kind'           => 'post-type',
+                'isTopLevelLink' => true,
+            );
+
+            $content .= '<!-- wp:navigation-link ' . wp_json_encode( $attrs ) . ' /-->' . "\n";
+        }
+
+        if ( '' === trim( $content ) ) {
+            return new WP_Error(
+                'pin_navigation_empty',
+                __( 'No imported pages were available for navigation creation.', 'pin-site-importer' )
+            );
+        }
+
+        $slug = 'pin-imported-' . substr( md5( $repository ), 0, 12 );
+        $existing = get_page_by_path( $slug, OBJECT, 'wp_navigation' );
+
+        $postarr = array(
+            'post_type'    => 'wp_navigation',
+            'post_status'  => 'publish',
+            'post_title'   => sprintf(
+                /* translators: %s: repository full name. */
+                __( 'Imported Navigation — %s', 'pin-site-importer' ),
+                $repository
+            ),
+            'post_name'    => $slug,
+            'post_content' => trim( $content ),
+        );
+
+        if ( $existing ) {
+            $postarr['ID'] = (int) $existing->ID;
+        }
+
+        $navigation_id = wp_insert_post( $postarr, true );
+
+        if ( is_wp_error( $navigation_id ) ) {
+            return $navigation_id;
+        }
+
+        update_post_meta( $navigation_id, '_pin_import_source_repo', $repository );
+        update_option( 'pin_site_importer_navigation_id', (int) $navigation_id, false );
+
+        return (int) $navigation_id;
     }
 
     private function fallback_title( string $path ): string {
