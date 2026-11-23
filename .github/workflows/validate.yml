@@ -91,6 +91,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Checkout real Meta Grey Label structured source
+        uses: actions/checkout@v5
+        with:
+          repository: omarreact/meta-gray-label
+          path: build-source/meta-gray-label
+
+      - name: Build real Structured Build artifact for WordPress integration
+        run: python scripts/build-structured-site.py --source-root build-source/meta-gray-label --out-dir build/meta-gray-label
+
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
@@ -129,6 +138,21 @@ jobs:
 
       - name: Run WordPress smoke test
         run: wp-env run cli wp eval-file wp-content/themes/pin-universal-fse/tests/wp-smoke.php
+
+      - name: Import real Structured Build WXR into fresh WordPress state
+        run: |
+          wp-env run cli wp eval 'foreach ( get_posts( array( "post_type" => "page", "post_status" => "any", "numberposts" => -1, "fields" => "ids" ) ) as $id ) { wp_delete_post( (int) $id, true ); }'
+          wp-env run cli wp theme install /var/www/html/wp-content/themes/pin-universal-fse/build/meta-gray-label/pin-site-meta-grey-label.zip --force --activate
+          wp-env run cli wp plugin install wordpress-importer --activate
+          wp-env run cli wp import /var/www/html/wp-content/themes/pin-universal-fse/build/meta-gray-label/website.xml --authors=create
+          wp-env run cli wp eval '$pages = get_posts( array( "post_type" => "page", "post_status" => "publish", "numberposts" => -1, "fields" => "ids" ) ); if ( 52 !== count( $pages ) ) { throw new Exception( "Expected 52 published pages; got " . count( $pages ) ); } $home = get_page_by_path( "home", OBJECT, "page" ); if ( ! $home ) { throw new Exception( "Generated Home page missing after WXR import." ); } update_option( "show_on_front", "page" ); update_option( "page_on_front", (int) $home->ID ); global $wp_rewrite; $wp_rewrite->set_permalink_structure( "/%postname%/" ); $wp_rewrite->flush_rules( true ); echo "structured-pages=52 home=" . $home->ID . PHP_EOL;'
+          wp-env run cli wp theme status pin-site-meta-grey-label
+          curl --fail --silent --show-error http://localhost:8888/ > /tmp/pin-structured-home.html
+          grep -q 'wp-content/themes/pin-site-meta-grey-label/source/' /tmp/pin-structured-home.html
+          if grep -q 'pin-site-importer/' /tmp/pin-structured-home.html; then
+            echo "Structured Build homepage must not depend on PIN Site Importer upload paths."
+            exit 1
+          fi
 
       - name: Stop WordPress
         if: always()
