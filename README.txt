@@ -1,5 +1,5 @@
 PIN Universal FSE
-Version: 0.4.0
+Version: 0.4.1
 Source: https://github.com/omarreact/WpBlockThemeFSE
 WordPress 6.6+ | PHP 8.1+
 

@@ -193,6 +193,9 @@ final class PIN_Site_Importer_Structured_Source {
             }
 
             $path = (string) ( $page['file'] ?? '' );
+            if ( '' !== $path && '' !== trim( $source_dir, '/' ) && ! str_starts_with( $path, trim( $source_dir, '/' ) . '/' ) ) {
+                $path = trim( $source_dir, '/' ) . '/' . ltrim( $path, '/' );
+            }
 
             if ( '' === $path ) {
                 $path = '__json__/' . ( 'home' === $slug ? 'index' : $slug ) . '.html';
@@ -214,7 +217,7 @@ final class PIN_Site_Importer_Structured_Source {
                     (string) $this->repository['owner'],
                     (string) $this->repository['repo'],
                     (string) $this->repository['branch'],
-                    (string) $page['file'],
+                    $path,
                     2097152
                 );
 
@@ -233,6 +236,7 @@ final class PIN_Site_Importer_Structured_Source {
                 'html'        => $this->wrap_document( $title, $html ),
                 'seo'         => is_array( $page['seo'] ?? null ) ? $page['seo'] : array(),
                 'source_type' => 'json',
+                'template'    => 'standalone' === ( $page['template'] ?? '' ) ? 'standalone' : '',
                 'order'       => (int) ( $page['order'] ?? $index ),
             );
         }

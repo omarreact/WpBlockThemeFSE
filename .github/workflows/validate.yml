@@ -55,8 +55,8 @@ jobs:
 
       - name: Verify release versions
         run: |
-          grep -q "Version: 0.4.0" style.css
-          grep -q "Version: 0.4.0" plugin/pin-site-importer/pin-site-importer.php
+          grep -q "Version: 0.4.1" style.css
+          grep -q "Version: 0.4.1" plugin/pin-site-importer/pin-site-importer.php
 
   structured-build-meta-gray-label:
     runs-on: ubuntu-latest

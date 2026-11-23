@@ -298,7 +298,8 @@ final class PIN_Site_Importer_Importer {
                 $repository['repo'],
                 $repository['branch'],
                 $path,
-                $source_dir
+                $source_dir,
+                is_array( $structured_json ) && 'standalone' === ( $structured_json['pages'][ $path ]['template'] ?? '' )
             );
 
             $converted = $converter->convert( $html );
@@ -491,6 +492,18 @@ final class PIN_Site_Importer_Importer {
             update_post_meta( $post_id, '_pin_import_source_branch', $repository['branch'] );
             update_post_meta( $post_id, '_pin_import_source_path', $path );
             update_post_meta( $post_id, '_pin_imported_at', gmdate( 'c' ) );
+            update_post_meta( $post_id, '_pin_import_body_class', (string) ( $converted['body_class'] ?? '' ) );
+            update_post_meta( $post_id, '_pin_import_html_attributes', (array) ( $converted['html_attributes'] ?? array() ) );
+            if ( 'standalone' === ( $structured_page['template'] ?? '' ) ) {
+                update_post_meta( $post_id, '_wp_page_template', 'pin-standalone' );
+                update_post_meta( $post_id, '_pin_import_standalone', 1 );
+            } elseif ( get_post_meta( $post_id, '_pin_import_standalone', true ) ) {
+                delete_post_meta( $post_id, '_pin_import_standalone' );
+                if ( 'pin-standalone' === get_post_meta( $post_id, '_wp_page_template', true ) ) {
+                    delete_post_meta( $post_id, '_wp_page_template' );
+                }
+            }
+
 
             if ( ! empty( $structured_page['seo'] ) && is_array( $structured_page['seo'] ) ) {
                 if ( ! empty( $structured_page['seo']['title'] ) ) {

@@ -183,5 +183,14 @@
       "title": "Site footer",
       "area": "footer"
     }
+  ],
+  "customTemplates": [
+    {
+      "name": "pin-standalone",
+      "title": "Independent source page",
+      "postTypes": [
+        "page"
+      ]
+    }
   ]
 }

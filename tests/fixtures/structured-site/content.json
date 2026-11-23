@@ -46,6 +46,12 @@
           "text": "This page verifies structured JSON conversion."
         }
       ]
+    },
+    {
+      "slug": "alternate",
+      "title": "Independent Layout",
+      "file": "alternate.html",
+      "template": "standalone"
     }
   ]
 }

@@ -7,6 +7,8 @@ defined( 'ABSPATH' ) || exit;
 
 final class PIN_Site_Importer_Admin {
     public static function register(): void {
+        add_filter( 'body_class', array( __CLASS__, 'imported_body_class' ) );
+        add_filter( 'language_attributes', array( __CLASS__, 'imported_html_attributes' ) );
         add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
         add_action( 'admin_post_pin_site_importer_run', array( __CLASS__, 'handle_import' ) );
         add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_global_imported_assets' ), 40 );
@@ -14,6 +16,29 @@ final class PIN_Site_Importer_Admin {
         add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_imported_scripts' ), 60 );
         add_filter( 'block_editor_settings_all', array( __CLASS__, 'filter_editor_settings' ), 20, 2 );
         add_filter( 'render_block_data', array( __CLASS__, 'inject_navigation_ref' ), 10, 2 );
+    }
+
+    public static function imported_body_class( array $classes ): array {
+        if ( is_singular( 'page' ) ) {
+            $source = (string) get_post_meta( get_queried_object_id(), '_pin_import_body_class', true );
+            foreach ( preg_split( '/\s+/', $source, -1, PREG_SPLIT_NO_EMPTY ) as $class ) {
+                $classes[] = sanitize_html_class( $class );
+            }
+        }
+        return array_values( array_unique( $classes ) );
+    }
+
+    public static function imported_html_attributes( string $attributes ): string {
+        if ( ! is_singular( 'page' ) ) {
+            return $attributes;
+        }
+        $source = get_post_meta( get_queried_object_id(), '_pin_import_html_attributes', true );
+        foreach ( is_array( $source ) ? $source : array() as $name => $value ) {
+            if ( preg_match( '/^(?:data-[a-z0-9_-]+|class|id)$/', $name ) && is_string( $value ) ) {
+                $attributes .= ' ' . $name . '="' . esc_attr( $value ) . '"';
+            }
+        }
+        return $attributes;
     }
 
     public static function menu(): void {
@@ -272,6 +297,9 @@ final class PIN_Site_Importer_Admin {
     }
 
     public static function enqueue_global_imported_assets(): void {
+        if ( is_singular( 'page' ) && get_post_meta( get_queried_object_id(), '_pin_import_standalone', true ) ) {
+            return;
+        }
         $post_id = self::find_imported_global_template_part();
 
         if ( ! $post_id ) {
