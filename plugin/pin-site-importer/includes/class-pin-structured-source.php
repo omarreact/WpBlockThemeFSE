@@ -185,7 +185,9 @@ final class PIN_Site_Importer_Structured_Source {
             'pages'      => $pages,
             'global_css' => $this->tokens_to_css( $tokens ),
             'site'       => is_array( $manifest['site'] ?? null ) ? $manifest['site'] : array(),
-            'navigation' => is_array( $manifest['navigation'] ?? null ) ? $manifest['navigation'] : array(),
+            'navigation'  => is_array( $manifest['navigation'] ?? null ) ? $manifest['navigation'] : array(),
+            'header_html' => $this->resolve_fragment( $manifest['header'] ?? null ),
+            'footer_html' => $this->resolve_fragment( $manifest['footer'] ?? null ),
         );
     }
 
@@ -532,7 +534,7 @@ final class PIN_Site_Importer_Structured_Source {
                 $value = $this->xpath_text( $xpath, 'wp:meta_value', $meta_node, false );
 
                 if ( '' !== $key && ! str_starts_with( $key, '_' ) ) {
-                    add_comment_meta( $new_id, $key, $value );
+                    update_comment_meta( $new_id, $key, $value );
                 }
             }
 
@@ -612,6 +614,45 @@ final class PIN_Site_Importer_Structured_Source {
         update_post_meta( (int) $attachment_id, '_source_url', esc_url_raw( $url ) );
 
         return (int) $attachment_id;
+    }
+
+    /**
+     * @param mixed $fragment
+     */
+    private function resolve_fragment( $fragment ): string {
+        if ( is_string( $fragment ) ) {
+            $value = trim( $fragment );
+
+            if ( '' === $value ) {
+                return '';
+            }
+
+            if ( str_starts_with( $value, '<' ) ) {
+                return wp_kses_post( $value );
+            }
+
+            $raw = $this->github->get_file(
+                (string) $this->repository['owner'],
+                (string) $this->repository['repo'],
+                (string) $this->repository['branch'],
+                ltrim( $value, '/' ),
+                1048576
+            );
+
+            return is_wp_error( $raw ) ? '' : $raw;
+        }
+
+        if ( is_array( $fragment ) ) {
+            if ( isset( $fragment['html'] ) && is_string( $fragment['html'] ) ) {
+                return wp_kses_post( $fragment['html'] );
+            }
+
+            if ( isset( $fragment['file'] ) && is_string( $fragment['file'] ) ) {
+                return $this->resolve_fragment( $fragment['file'] );
+            }
+        }
+
+        return '';
     }
 
     /** @return array<string,mixed>|WP_Error */
