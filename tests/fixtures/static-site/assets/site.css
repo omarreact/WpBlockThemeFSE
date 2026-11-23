@@ -1,0 +1,4 @@
+:root{--fixture-accent:#2563eb}
+.fixture-header,.fixture-footer{padding:16px}
+.fixture-main{max-width:960px;margin-inline:auto}
+.button{display:inline-block;padding:10px 16px;border-radius:8px}
