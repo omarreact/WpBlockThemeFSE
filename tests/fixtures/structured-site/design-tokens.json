@@ -1,0 +1,12 @@
+{
+  "colors": {
+    "primary": "#0d9488",
+    "text": "#111827"
+  },
+  "typography": {
+    "body": "system-ui"
+  },
+  "layout": {
+    "contentWidth": "1200px"
+  }
+}

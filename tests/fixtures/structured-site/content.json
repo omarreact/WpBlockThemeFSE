@@ -1,0 +1,51 @@
+{
+  "pages": [
+    {
+      "title": "Structured Home",
+      "slug": "/",
+      "status": "publish",
+      "seo": {
+        "title": "Structured Fixture Home",
+        "description": "Structured JSON fixture description."
+      },
+      "sections": [
+        {
+          "type": "hero",
+          "heading": "Structured Import",
+          "text": "Imported from content.json",
+          "buttons": [
+            {
+              "label": "About",
+              "url": "about"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "items": [
+            {
+              "title": "One",
+              "text": "First item"
+            },
+            {
+              "title": "Two",
+              "text": "Second item"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Structured About",
+      "slug": "about",
+      "parent": "home",
+      "sections": [
+        {
+          "type": "content",
+          "heading": "About",
+          "text": "This page verifies structured JSON conversion."
+        }
+      ]
+    }
+  ]
+}

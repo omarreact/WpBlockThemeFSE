@@ -1,8 +1,11 @@
 <?php
 /**
  * PIN Universal FSE — content-neutral WordPress theme setup.
- * Importers belong in standalone plugins, never this theme.
+ *
+ * Site presentation stays in the theme. Import/conversion functionality lives
+ * in the bundled PIN Site Importer companion plugin.
  */
+
 defined( 'ABSPATH' ) || exit;
 
 add_action( 'after_setup_theme', static function (): void {
@@ -21,3 +24,9 @@ add_action( 'wp_enqueue_scripts', static function (): void {
         wp_get_theme()->get( 'Version' )
     );
 } );
+
+$pin_universal_fse_companion_installer = get_template_directory() . '/inc/companion-plugin-installer.php';
+
+if ( file_exists( $pin_universal_fse_companion_installer ) ) {
+    require_once $pin_universal_fse_companion_installer;
+}

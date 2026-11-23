@@ -1,0 +1,157 @@
+name: Theme and companion plugin validation
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate PHP syntax
+        run: |
+          find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
+
+      - name: Validate JSON
+        run: |
+          python -m json.tool theme.json >/dev/null
+          find styles -type f -name '*.json' -print0 | xargs -0 -n1 python -m json.tool
+
+      - name: Verify required theme and plugin files
+        run: |
+          test -f style.css
+          test -f theme.json
+          test -f templates/index.html
+          test -f plugin/pin-site-importer/pin-site-importer.php
+          test -f plugin/pin-site-importer/includes/class-pin-github-client.php
+          test -f plugin/pin-site-importer/includes/class-pin-asset-manager.php
+          test -f plugin/pin-site-importer/includes/class-pin-html-to-blocks.php
+          test -f plugin/pin-site-importer/includes/class-pin-structured-source.php
+          test -f plugin/pin-site-importer/includes/class-pin-importer.php
+          test -f plugin/pin-site-importer/includes/class-pin-admin.php
+          test -f inc/companion-plugin-installer.php
+
+      - name: Verify release versions
+        run: |
+          grep -q "Version: 0.3.0" style.css
+          grep -q "Version: 0.3.0" plugin/pin-site-importer/pin-site-importer.php
+
+  wordpress-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Install wp-env
+        run: npm install --global @wordpress/env@10.0.2
+
+      - name: Start WordPress
+        run: wp-env start
+
+      - name: Activate theme
+        run: wp-env run cli wp theme activate pin-universal-fse
+
+      - name: Trigger bundled companion installation
+        run: |
+          wp-env run cli wp eval 'wp_set_current_user(1); do_action("admin_init");'
+
+      - name: Diagnose companion installation
+        run: |
+          wp-env run cli wp eval 'wp_set_current_user(1); echo "can_install=" . ( current_user_can("install_plugins") ? "yes" : "no" ) . PHP_EOL; echo "can_activate=" . ( current_user_can("activate_plugins") ? "yes" : "no" ) . PHP_EOL; echo "pending=" . get_option("pin_universal_fse_companion_install_pending", "none") . PHP_EOL; echo "error=" . get_option("pin_universal_fse_companion_install_error", "none") . PHP_EOL; echo "source=" . ( file_exists( get_template_directory() . "/plugin/pin-site-importer/pin-site-importer.php" ) ? "yes" : "no" ) . PHP_EOL; echo "target=" . ( file_exists( WP_PLUGIN_DIR . "/pin-site-importer/pin-site-importer.php" ) ? "yes" : "no" ) . PHP_EOL;'
+          wp-env run cli wp plugin list
+
+      - name: Verify companion plugin
+        run: wp-env run cli wp plugin is-active pin-site-importer
+
+      - name: Configure end-to-end GitHub fixture
+        env:
+          PIN_SMOKE_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          SOURCE_BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          wp-env run cli wp option update pin_smoke_source_repo "https://github.com/${GITHUB_REPOSITORY}"
+          wp-env run cli wp option update pin_smoke_source_branch "${SOURCE_BRANCH}"
+          wp-env run cli wp option update pin_smoke_github_token "${PIN_SMOKE_GITHUB_TOKEN}"
+
+      - name: Run WordPress smoke test
+        run: wp-env run cli wp eval-file wp-content/themes/pin-universal-fse/tests/wp-smoke.php
+
+      - name: Stop WordPress
+        if: always()
+        run: command -v wp-env >/dev/null 2>&1 && wp-env stop || true
+
+
+  package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs:
+      - validate
+      - wordpress-integration
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build installable theme ZIP
+        run: bash scripts/package-theme.sh
+
+      - name: Verify package contents
+        run: |
+          test -f dist/pin-universal-fse.zip
+          test -f dist/pin-site-importer.zip
+          unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/style.css'
+          unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/plugin/pin-site-importer/pin-site-importer.php'
+          unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/bundled/pin-site-importer.zip'
+          unzip -l dist/pin-site-importer.zip | grep -q 'pin-site-importer/pin-site-importer.php'
+          if unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/tests/'; then
+            echo "Development tests must not ship in the installable theme package."
+            exit 1
+          fi
+
+      - name: Upload installable packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: pin-universal-fse
+          path: |
+            dist/pin-universal-fse.zip
+            dist/pin-site-importer.zip
+          if-no-files-found: error
+
+      - name: Publish verified package branch
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ github.event_name == 'pull_request' && 'distribution-rc' || 'distribution' }}
+        run: |
+          TMP_DIR="$(mktemp -d)"
+          cp dist/pin-universal-fse.zip "$TMP_DIR/"
+          cp dist/pin-site-importer.zip "$TMP_DIR/"
+          printf '%s\n' "${GITHUB_SHA}" > "$TMP_DIR/SOURCE_SHA"
+          printf '%s\n' "${GITHUB_REF_NAME}" > "$TMP_DIR/SOURCE_REF"
+          cd "$TMP_DIR"
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan package
+          git add .
+          git commit -m "Publish verified WordPress packages"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin HEAD:"${TARGET_BRANCH}"
