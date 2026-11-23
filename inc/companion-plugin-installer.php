@@ -14,12 +14,27 @@ const PIN_UNIVERSAL_FSE_COMPANION_PENDING = 'pin_universal_fse_companion_install
 const PIN_UNIVERSAL_FSE_COMPANION_ERROR   = 'pin_universal_fse_companion_install_error';
 
 /**
- * Mark the companion plugin for installation after the theme is activated.
+ * Install the companion during theme activation when permissions allow.
+ * A pending flag remains as a fallback for hosts that require a later admin request.
  */
-function pin_universal_fse_queue_companion_install(): void {
+function pin_universal_fse_activate_companion_on_switch(): void {
     update_option( PIN_UNIVERSAL_FSE_COMPANION_PENDING, '1', false );
+
+    if ( ! current_user_can( 'install_plugins' ) || ! current_user_can( 'activate_plugins' ) ) {
+        return;
+    }
+
+    $result = pin_universal_fse_install_companion();
+
+    if ( is_wp_error( $result ) ) {
+        update_option(
+            PIN_UNIVERSAL_FSE_COMPANION_ERROR,
+            sanitize_text_field( $result->get_error_message() ),
+            false
+        );
+    }
 }
-add_action( 'after_switch_theme', 'pin_universal_fse_queue_companion_install' );
+add_action( 'after_switch_theme', 'pin_universal_fse_activate_companion_on_switch' );
 
 /**
  * Return the bundled plugin source directory inside the theme.
@@ -33,6 +48,13 @@ function pin_universal_fse_companion_source_dir(): string {
  */
 function pin_universal_fse_companion_target_dir(): string {
     return trailingslashit( WP_PLUGIN_DIR ) . 'pin-site-importer';
+}
+
+/**
+ * Return the packaged plugin ZIP used by WordPress' Plugin_Upgrader.
+ */
+function pin_universal_fse_companion_bundle_zip(): string {
+    return trailingslashit( get_template_directory() ) . 'bundled/pin-site-importer.zip';
 }
 
 /**
@@ -169,13 +191,29 @@ function pin_universal_fse_install_companion() {
             );
         }
 
-        $copied = pin_universal_fse_copy_directory(
-            pin_universal_fse_companion_source_dir(),
-            $target_dir
-        );
+        $installed = false;
 
-        if ( is_wp_error( $copied ) ) {
-            return $copied;
+        if ( ! file_exists( $target_file ) && file_exists( pin_universal_fse_companion_bundle_zip() ) ) {
+            require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+
+            $skin     = new Automatic_Upgrader_Skin();
+            $upgrader = new Plugin_Upgrader( $skin );
+            $result   = $upgrader->install( pin_universal_fse_companion_bundle_zip() );
+
+            if ( true === $result ) {
+                $installed = true;
+            }
+        }
+
+        if ( ! $installed ) {
+            $copied = pin_universal_fse_copy_directory(
+                pin_universal_fse_companion_source_dir(),
+                $target_dir
+            );
+
+            if ( is_wp_error( $copied ) ) {
+                return $copied;
+            }
         }
 
         // The plugin directory changed during this request. Refresh WordPress'
