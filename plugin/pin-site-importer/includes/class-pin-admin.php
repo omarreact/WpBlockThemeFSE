@@ -11,7 +11,7 @@ final class PIN_Site_Importer_Admin {
         add_action( 'admin_post_pin_site_importer_run', array( __CLASS__, 'handle_import' ) );
         add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_imported_css' ), 50 );
         add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_imported_scripts' ), 60 );
-        add_action( 'enqueue_block_editor_assets', array( __CLASS__, 'enqueue_editor_css' ), 50 );
+        add_filter( 'block_editor_settings_all', array( __CLASS__, 'filter_editor_settings' ), 20, 2 );
         add_filter( 'render_block_data', array( __CLASS__, 'inject_navigation_ref' ), 10, 2 );
     }
 
@@ -325,24 +325,55 @@ final class PIN_Site_Importer_Admin {
         }
     }
 
-    public static function enqueue_editor_css(): void {
-        $post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0;
-
-        if ( ! $post_id ) {
-            return;
+    /**
+     * Inject imported page/template-part CSS into the actual block-editor
+     * content iframe. This works for the Post Editor and Site Editor contexts.
+     *
+     * @param array<string,mixed> $settings
+     * @return array<string,mixed>
+     */
+    public static function filter_editor_settings( array $settings, WP_Block_Editor_Context $context ): array {
+        if ( empty( $context->post ) || ! $context->post instanceof WP_Post ) {
+            return $settings;
         }
 
-        self::enqueue_external_styles_for_post( $post_id, 'editor' );
+        $post_id = (int) $context->post->ID;
+        $css     = trim( (string) get_post_meta( $post_id, '_pin_import_css', true ) );
+        $imports = array();
+        $external_styles = get_post_meta( $post_id, '_pin_import_external_css', true );
 
-        $css = (string) get_post_meta( $post_id, '_pin_import_css', true );
+        if ( is_array( $external_styles ) ) {
+            foreach ( array_slice( $external_styles, 0, 16 ) as $url ) {
+                $url = esc_url_raw( (string) $url, array( 'http', 'https' ) );
 
-        if ( '' === $css ) {
-            return;
+                if ( '' === $url ) {
+                    continue;
+                }
+
+                $url = str_replace(
+                    array( '"', "'" ),
+                    array( '%22', '%27' ),
+                    $url
+                );
+                $imports[] = '@import url("' . $url . '");';
+            }
         }
 
-        wp_register_style( 'pin-site-importer-editor', false, array(), PIN_SITE_IMPORTER_VERSION );
-        wp_enqueue_style( 'pin-site-importer-editor' );
-        wp_add_inline_style( 'pin-site-importer-editor', $css );
+        $editor_css = trim( implode( "\n", $imports ) . "\n" . $css );
+
+        if ( '' === $editor_css ) {
+            return $settings;
+        }
+
+        if ( ! isset( $settings['styles'] ) || ! is_array( $settings['styles'] ) ) {
+            $settings['styles'] = array();
+        }
+
+        $settings['styles'][] = array(
+            'css' => $editor_css,
+        );
+
+        return $settings;
     }
 
     private static function enqueue_external_styles_for_post( int $post_id, string $context ): void {
