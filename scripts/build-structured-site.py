@@ -275,9 +275,16 @@ add_action('wp_enqueue_scripts', function(){{
         if self.inline:(self.theme/"assets"/"generated-inline.css").write_text("\n\n".join(dict.fromkeys(self.inline))+"\n",encoding="utf-8")
         wxr.parent.mkdir(parents=True,exist_ok=True);wxr.write_text(self.make_wxr(generated),encoding="utf-8")
         zip_path.parent.mkdir(parents=True,exist_ok=True)
-        with zipfile.ZipFile(zip_path,"w",zipfile.ZIP_DEFLATED) as z:
+        with zipfile.ZipFile(zip_path,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
             for p in sorted(self.theme.rglob("*")):
-                if p.is_file():z.write(p,pathlib.PurePosixPath(self.slug)/p.relative_to(self.theme))
+                if not p.is_file():
+                    continue
+                arcname=str(pathlib.PurePosixPath(self.slug)/p.relative_to(self.theme))
+                info=zipfile.ZipInfo(arcname,date_time=(1980,1,1,0,0,0))
+                info.compress_type=zipfile.ZIP_DEFLATED
+                info.create_system=3
+                info.external_attr=(0o100644 & 0xFFFF) << 16
+                z.writestr(info,p.read_bytes(),compress_type=zipfile.ZIP_DEFLATED,compresslevel=9)
         return {"site":self.name,"theme_slug":self.slug,"pages":len(generated),"assets":sum(1 for p in (self.theme/"source").rglob("*") if p.is_file()) if (self.theme/"source").exists() else 0,"stylesheets":len(set(self.css)),"scripts":len(set(self.js)),"theme_dir":str(self.theme),"wxr":str(wxr),"zip":str(zip_path)}
 
 def main():
