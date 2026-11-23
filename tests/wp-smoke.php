@@ -301,6 +301,29 @@ pin_smoke_assert(
     'End-to-end import did not preserve external stylesheet metadata.'
 );
 
+$editor_settings = PIN_Site_Importer_Admin::filter_editor_settings(
+    array( 'styles' => array() ),
+    new WP_Block_Editor_Context(
+        array(
+            'name' => 'core/edit-post',
+            'post' => get_post( $home_id ),
+        )
+    )
+);
+$editor_css = '';
+
+foreach ( (array) ( $editor_settings['styles'] ?? array() ) as $style_entry ) {
+    if ( is_array( $style_entry ) && isset( $style_entry['css'] ) ) {
+        $editor_css .= "\n" . (string) $style_entry['css'];
+    }
+}
+
+pin_smoke_assert(
+    str_contains( $editor_css, '.fixture-main' )
+        && str_contains( $editor_css, 'https://cdn.example.com/fixture.css' ),
+    'Imported styles were not injected into the block editor canvas settings.'
+);
+
 foreach ( (array) $e2e['page_ids'] as $page_id ) {
     wp_delete_post( (int) $page_id, true );
 }
