@@ -28,6 +28,7 @@ pin_smoke_assert(
 
 pin_smoke_assert(
     class_exists( 'PIN_Site_Importer_GitHub_Client' )
+        && class_exists( 'PIN_Site_Importer_Asset_Manager' )
         && class_exists( 'PIN_Site_Importer_HTML_To_Blocks' )
         && class_exists( 'PIN_Site_Importer_Importer' )
         && class_exists( 'PIN_Site_Importer_Admin' ),
