@@ -449,13 +449,14 @@ $structured = $importer->run(
         'mirror_assets'     => false,
         'set_home'          => false,
         'create_navigation' => false,
-        'import_template_parts' => false,
+        'import_template_parts' => true,
         'apply_global'      => false,
     )
 );
 pin_smoke_assert( ! is_wp_error( $structured ), 'Structured JSON import failed.' );
 pin_smoke_assert( 'json' === ( $structured['source_mode'] ?? '' ), 'Structured JSON mode was not selected.' );
 pin_smoke_assert( 2 === (int) ( $structured['pages_imported'] ?? 0 ), 'Structured JSON pages were not imported.' );
+pin_smoke_assert( ! empty( $structured['template_parts']['header'] ) && ! empty( $structured['template_parts']['footer'] ), 'Structured header/footer were not imported as FSE template parts.' );
 $structured_home = get_posts(
     array(
         'post_type'      => 'page',
@@ -477,6 +478,9 @@ pin_smoke_assert(
 );
 foreach ( (array) $structured['page_ids'] as $structured_page_id ) {
     wp_delete_post( (int) $structured_page_id, true );
+}
+foreach ( (array) ( $structured['template_parts'] ?? array() ) as $structured_part_id ) {
+    wp_delete_post( (int) $structured_part_id, true );
 }
 
 // Explicit WordPress WXR/XML import.
