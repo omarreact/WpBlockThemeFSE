@@ -194,7 +194,26 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         }
 
         if ( 'figure' === $tag ) {
-            $image = $node->getElementsByTagName( 'img' )->item( 0 );
+            $figure_images = $node->getElementsByTagName( 'img' );
+
+            if ( $figure_images->length > 1 ) {
+                $gallery = '';
+
+                foreach ( $figure_images as $gallery_image ) {
+                    if ( $gallery_image instanceof DOMElement ) {
+                        $gallery .= $this->image_block( $gallery_image, $images );
+                    }
+                }
+
+                if ( '' !== $gallery ) {
+                    return '<!-- wp:gallery {"linkTo":"none"} -->'
+                        . '<figure class="wp-block-gallery has-nested-images columns-default is-cropped">'
+                        . $gallery
+                        . '</figure><!-- /wp:gallery -->';
+                }
+            }
+
+            $image = $figure_images->item( 0 );
 
             if ( $image instanceof DOMElement ) {
                 return $this->image_block( $image, $images );
@@ -243,6 +262,57 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             $table = wp_kses_post( $node->ownerDocument->saveHTML( $node ) );
 
             return '<!-- wp:table --><figure class="wp-block-table">' . $table . '</figure><!-- /wp:table -->';
+        }
+
+        if ( 'details' === $tag ) {
+            $summary_node = $node->getElementsByTagName( 'summary' )->item( 0 );
+            $summary      = $summary_node ? sanitize_text_field( (string) $summary_node->textContent ) : __( 'Details', 'pin-site-importer' );
+            $inner        = '';
+
+            foreach ( $node->childNodes as $child ) {
+                if ( $child === $summary_node ) {
+                    continue;
+                }
+
+                $inner .= $this->node_to_block( $child, $images );
+            }
+
+            return '<!-- wp:details --><details class="wp-block-details"><summary>'
+                . esc_html( $summary ) . '</summary>' . $inner . '</details><!-- /wp:details -->';
+        }
+
+        if ( in_array( $tag, array( 'video', 'audio' ), true ) ) {
+            $src = trim( $node->getAttribute( 'src' ) );
+
+            if ( '' === $src ) {
+                $source_node = $node->getElementsByTagName( 'source' )->item( 0 );
+
+                if ( $source_node instanceof DOMElement ) {
+                    $src = trim( $source_node->getAttribute( 'src' ) );
+                }
+            }
+
+            if ( '' !== $src ) {
+                $resolved = preg_match( '~^https?://~i', $src ) ? esc_url_raw( $src ) : $this->resolve_asset_url( $src );
+                $element  = '<' . $tag . ' controls src="' . esc_url( $resolved ) . '"></' . $tag . '>';
+
+                if ( 'video' === $tag ) {
+                    return '<!-- wp:video --><figure class="wp-block-video">' . $element . '</figure><!-- /wp:video -->';
+                }
+
+                return '<!-- wp:audio --><figure class="wp-block-audio">' . $element . '</figure><!-- /wp:audio -->';
+            }
+        }
+
+        if ( 'iframe' === $tag ) {
+            $src = esc_url_raw( $node->getAttribute( 'src' ), array( 'http', 'https' ) );
+
+            if ( '' !== $src ) {
+                $title = sanitize_text_field( $node->getAttribute( 'title' ) );
+
+                return '<!-- wp:html --><iframe src="' . esc_url( $src ) . '" title="'
+                    . esc_attr( $title ) . '" loading="lazy"></iframe><!-- /wp:html -->';
+            }
         }
 
         if ( 'a' === $tag && $this->is_standalone_button( $node ) ) {
@@ -331,6 +401,39 @@ final class PIN_Site_Importer_HTML_To_Blocks {
                 '<a href="' . esc_url( $href ) . '"' . $target . '>' . $inner . '</a>',
                 $this->class_attribute( $node )
             );
+        }
+
+        if ( in_array( $tag, array( 'section', 'div' ), true ) ) {
+            $class_hint = strtolower( $node->getAttribute( 'class' ) );
+            $elements   = array();
+
+            foreach ( $node->childNodes as $child ) {
+                if ( XML_ELEMENT_NODE === $child->nodeType ) {
+                    $elements[] = $child;
+                }
+            }
+
+            if (
+                count( $elements ) >= 2
+                && count( $elements ) <= 6
+                && preg_match( '/(?:^|\s|[-_])(row|grid|columns?|cards?)(?:$|\s|[-_])/', $class_hint )
+            ) {
+                $columns = '';
+
+                foreach ( $elements as $element ) {
+                    $column_inner = $this->node_to_block( $element, $images );
+
+                    if ( '' !== trim( $column_inner ) ) {
+                        $columns .= '<!-- wp:column --><div class="wp-block-column">'
+                            . $column_inner . '</div><!-- /wp:column -->';
+                    }
+                }
+
+                if ( '' !== $columns ) {
+                    return '<!-- wp:columns --><div class="wp-block-columns">'
+                        . $columns . '</div><!-- /wp:columns -->';
+                }
+            }
         }
 
         if ( in_array( $tag, array( 'section', 'div', 'main', 'article', 'header', 'footer', 'aside' ), true ) ) {

@@ -71,6 +71,18 @@ final class PIN_Site_Importer_Admin {
                         </td>
                     </tr>
                     <tr>
+                        <th scope="row"><label for="pin-source-format"><?php esc_html_e( 'Source format', 'pin-site-importer' ); ?></label></th>
+                        <td>
+                            <select id="pin-source-format" name="source_format">
+                                <option value="auto"><?php esc_html_e( 'Auto: JSON → WXR/XML → HTML', 'pin-site-importer' ); ?></option>
+                                <option value="json"><?php esc_html_e( 'Structured JSON', 'pin-site-importer' ); ?></option>
+                                <option value="wxr"><?php esc_html_e( 'WordPress WXR/XML', 'pin-site-importer' ); ?></option>
+                                <option value="html"><?php esc_html_e( 'Rendered HTML only', 'pin-site-importer' ); ?></option>
+                            </select>
+                            <p class="description"><?php esc_html_e( 'Auto mode prefers site-manifest.json/content.json, then WordPress export XML, then rendered HTML.', 'pin-site-importer' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row"><label for="pin-token"><?php esc_html_e( 'GitHub token (optional)', 'pin-site-importer' ); ?></label></th>
                         <td>
                             <input id="pin-token" name="token" type="password" class="regular-text" autocomplete="off">
@@ -108,7 +120,7 @@ final class PIN_Site_Importer_Admin {
 
             <hr>
             <h2><?php esc_html_e( 'Supported in this phase', 'pin-site-importer' ); ?></h2>
-            <p><?php esc_html_e( 'Static HTML repositories and static-export output from other frameworks. Dynamic Next.js/React/Angular source repositories must first produce HTML output; the importer detects those projects and will not pretend unbuilt source code is a finished website.', 'pin-site-importer' ); ?></p>
+            <p><?php esc_html_e( 'Structured JSON, WordPress WXR/XML, static HTML repositories and static-export output from other frameworks. Dynamic Next.js/React/Angular source repositories must first produce HTML output; the importer detects those projects and will not pretend unbuilt source code is a finished website.', 'pin-site-importer' ); ?></p>
 
             <?php if ( is_array( $history ) && $history ) : ?>
                 <h2><?php esc_html_e( 'Recent imports', 'pin-site-importer' ); ?></h2>
@@ -150,6 +162,7 @@ final class PIN_Site_Importer_Admin {
         $branch   = isset( $_POST['branch'] ) ? sanitize_text_field( wp_unslash( $_POST['branch'] ) ) : '';
         $token    = isset( $_POST['token'] ) ? sanitize_text_field( wp_unslash( $_POST['token'] ) ) : '';
         $source_dir = isset( $_POST['source_dir'] ) ? sanitize_text_field( wp_unslash( $_POST['source_dir'] ) ) : '';
+        $source_format = isset( $_POST['source_format'] ) ? sanitize_key( wp_unslash( $_POST['source_format'] ) ) : 'auto';
 
         $importer = new PIN_Site_Importer_Importer();
         $result   = $importer->run(
@@ -158,6 +171,7 @@ final class PIN_Site_Importer_Admin {
                 'branch'       => $branch,
                 'token'        => $token,
                 'source_dir'   => $source_dir,
+                'source_format'=> $source_format,
                 'post_status'  => isset( $_POST['post_status'] ) ? sanitize_key( wp_unslash( $_POST['post_status'] ) ) : 'draft',
                 'import_media' => ! empty( $_POST['import_media'] ),
                 'import_css'   => ! empty( $_POST['import_css'] ),

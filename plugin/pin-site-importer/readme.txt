@@ -2,7 +2,7 @@
 Contributors: pincodeit
 Requires at least: 6.6
 Requires PHP: 8.1
-Stable tag: 0.2.0
+Stable tag: 0.3.0
 License: GPL-2.0-or-later
 
 GitHub/static-HTML to native WordPress Gutenberg importer bundled with
@@ -61,3 +61,11 @@ Gutenberg conversion, page hierarchy, FSE template parts and navigation
 behavior. CI also imports a real fixture from this GitHub repository through the
 same remote GitHub API pipeline and verifies CSS, JavaScript, static assets,
 editor-canvas styles and internal-link rewriting.
+
+
+== Structured sources ==
+
+Auto mode prefers site-manifest.json/content.json with optional design-tokens.json,
+then WordPress WXR/XML exports, then rendered HTML. WXR imports posts/pages,
+hierarchy, public custom fields, categories and tags. JSON pages are normalized
+through the same Gutenberg/FSE pipeline used by HTML imports.

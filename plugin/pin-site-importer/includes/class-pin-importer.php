@@ -18,6 +18,10 @@ final class PIN_Site_Importer_Importer {
         $branch         = sanitize_text_field( (string) ( $args['branch'] ?? '' ) );
         $token          = sanitize_text_field( (string) ( $args['token'] ?? '' ) );
         $source_dir     = trim( str_replace( chr( 92 ), '/', sanitize_text_field( (string) ( $args['source_dir'] ?? '' ) ) ), '/' );
+        $source_format  = sanitize_key( (string) ( $args['source_format'] ?? 'auto' ) );
+        if ( ! in_array( $source_format, array( 'auto', 'html', 'json', 'wxr' ), true ) ) {
+            $source_format = 'auto';
+        }
         $post_status    = 'publish' === ( $args['post_status'] ?? '' ) ? 'publish' : 'draft';
         $import_media   = ! empty( $args['import_media'] );
         $import_css     = ! empty( $args['import_css'] );
@@ -36,16 +40,66 @@ final class PIN_Site_Importer_Importer {
             return $repository;
         }
 
+        $structured_source = new PIN_Site_Importer_Structured_Source( $github, $repository );
+        $structured_json   = null;
+
+        if ( 'html' !== $source_format ) {
+            if ( in_array( $source_format, array( 'auto', 'json' ), true ) ) {
+                $structured_json = $structured_source->load_json( $source_dir );
+
+                if ( is_wp_error( $structured_json ) ) {
+                    return $structured_json;
+                }
+
+                if ( null === $structured_json && 'json' === $source_format ) {
+                    return new WP_Error(
+                        'pin_json_source_missing',
+                        __( 'JSON source mode was selected but no site-manifest.json or content.json was found.', 'pin-site-importer' )
+                    );
+                }
+            }
+
+            if ( null === $structured_json && in_array( $source_format, array( 'auto', 'wxr' ), true ) ) {
+                $wxr_result = $structured_source->import_wxr( $source_dir, $post_status );
+
+                if ( is_wp_error( $wxr_result ) ) {
+                    return $wxr_result;
+                }
+
+                if ( is_array( $wxr_result ) ) {
+                    $this->store_history( $wxr_result );
+                    return $wxr_result;
+                }
+
+                if ( 'wxr' === $source_format ) {
+                    return new WP_Error(
+                        'pin_wxr_source_missing',
+                        __( 'WXR/XML source mode was selected but no WordPress export XML file was found.', 'pin-site-importer' )
+                    );
+                }
+            }
+        }
+
         $auto_source_dir = false;
 
-        if ( '' === $source_dir && ! empty( $repository['recommended_source_dir'] ) ) {
+        if ( null === $structured_json && '' === $source_dir && ! empty( $repository['recommended_source_dir'] ) ) {
             $source_dir      = (string) $repository['recommended_source_dir'];
             $auto_source_dir = true;
         }
 
         $assets = new PIN_Site_Importer_Asset_Manager( $github, $repository );
 
-        if ( '' !== $source_dir ) {
+        if ( '' !== $source_dir && false !== strpos( $source_dir, '..' ) ) {
+            return new WP_Error(
+                'pin_invalid_source_directory',
+                __( 'The source directory cannot contain parent-directory segments.', 'pin-site-importer' )
+            );
+        }
+
+        if ( is_array( $structured_json ) ) {
+            $repository['html_files'] = array_keys( (array) $structured_json['pages'] );
+            $repository['technology'] = 'Structured JSON';
+        } elseif ( '' !== $source_dir ) {
             if ( false !== strpos( $source_dir, '..' ) ) {
                 return new WP_Error(
                     'pin_invalid_source_directory',
@@ -93,6 +147,10 @@ final class PIN_Site_Importer_Importer {
             return $page_map;
         }
 
+        if ( is_array( $structured_json ) ) {
+            $this->apply_structured_page_metadata( $page_map, (array) $structured_json['pages'] );
+        }
+
         $result = array(
             'repository'       => $repository['full_name'],
             'branch'           => $repository['branch'],
@@ -110,6 +168,7 @@ final class PIN_Site_Importer_Importer {
             'navigation_id'    => 0,
             'template_parts'   => array(),
             'global_applied'   => $apply_global,
+            'source_mode'      => is_array( $structured_json ) ? 'json' : 'html',
             'auto_source_dir'  => $auto_source_dir,
             'static_roots'     => (array) ( $repository['static_roots'] ?? array() ),
         );
@@ -169,12 +228,16 @@ final class PIN_Site_Importer_Importer {
                 continue;
             }
 
-            $html = $github->get_file(
-                $repository['owner'],
-                $repository['repo'],
-                $repository['branch'],
-                $path
-            );
+            if ( is_array( $structured_json ) && isset( $structured_json['pages'][ $path ]['html'] ) ) {
+                $html = (string) $structured_json['pages'][ $path ]['html'];
+            } else {
+                $html = $github->get_file(
+                    $repository['owner'],
+                    $repository['repo'],
+                    $repository['branch'],
+                    $path
+                );
+            }
 
             if ( is_wp_error( $html ) ) {
                 ++$result['pages_failed'];
@@ -225,9 +288,15 @@ final class PIN_Site_Importer_Importer {
                 }
             }
 
-            $title = '' !== $converted['title']
-                ? $converted['title']
-                : $this->fallback_title( $path, $source_dir );
+            $structured_page = is_array( $structured_json ) && isset( $structured_json['pages'][ $path ] )
+                ? (array) $structured_json['pages'][ $path ]
+                : array();
+
+            $title = ! empty( $structured_page['title'] )
+                ? sanitize_text_field( (string) $structured_page['title'] )
+                : ( '' !== $converted['title']
+                    ? $converted['title']
+                    : $this->fallback_title( $path, $source_dir ) );
 
             $updated = wp_update_post(
                 array(
@@ -249,6 +318,11 @@ final class PIN_Site_Importer_Importer {
 
             if ( $import_css ) {
                 $page_css    = trim( (string) ( $converted['inline_css'] ?? '' ) );
+
+                if ( is_array( $structured_json ) && ! empty( $structured_json['global_css'] ) ) {
+                    $page_css = trim( (string) $structured_json['global_css'] . "
+" . $page_css );
+                }
                 $embedded_css = trim( (string) ( $converted['embedded_css'] ?? '' ) );
 
                 if ( '' !== $embedded_css ) {
@@ -371,6 +445,15 @@ final class PIN_Site_Importer_Importer {
             update_post_meta( $post_id, '_pin_import_source_branch', $repository['branch'] );
             update_post_meta( $post_id, '_pin_import_source_path', $path );
             update_post_meta( $post_id, '_pin_imported_at', gmdate( 'c' ) );
+
+            if ( ! empty( $structured_page['seo'] ) && is_array( $structured_page['seo'] ) ) {
+                if ( ! empty( $structured_page['seo']['title'] ) ) {
+                    update_post_meta( $post_id, '_pin_import_seo_title', sanitize_text_field( (string) $structured_page['seo']['title'] ) );
+                }
+                if ( ! empty( $structured_page['seo']['description'] ) ) {
+                    update_post_meta( $post_id, '_pin_import_seo_description', sanitize_textarea_field( (string) $structured_page['seo']['description'] ) );
+                }
+            }
 
             ++$result['pages_imported'];
             $result['page_ids'][] = $post_id;
@@ -502,6 +585,52 @@ final class PIN_Site_Importer_Importer {
         $this->store_history( $result );
 
         return $result;
+    }
+
+    /**
+     * @param array<string,int>   $page_map
+     * @param array<string,mixed> $pages
+     */
+    private function apply_structured_page_metadata( array $page_map, array $pages ): void {
+        $slug_map = array();
+
+        foreach ( $pages as $path => $page ) {
+            if ( ! isset( $page_map[ $path ] ) || ! is_array( $page ) ) {
+                continue;
+            }
+
+            $post_id = (int) $page_map[ $path ];
+            $slug    = sanitize_title( (string) ( $page['slug'] ?? '' ) );
+
+            wp_update_post(
+                array(
+                    'ID'         => $post_id,
+                    'post_name'  => ( '' !== $slug && 'home' !== $slug ) ? $slug : get_post_field( 'post_name', $post_id ),
+                    'menu_order' => (int) ( $page['order'] ?? 0 ),
+                )
+            );
+
+            if ( '' !== $slug ) {
+                $slug_map[ $slug ] = $post_id;
+            }
+        }
+
+        foreach ( $pages as $path => $page ) {
+            if ( ! isset( $page_map[ $path ] ) || ! is_array( $page ) ) {
+                continue;
+            }
+
+            $parent = sanitize_title( (string) ( $page['parent'] ?? '' ) );
+
+            if ( '' !== $parent && isset( $slug_map[ $parent ] ) ) {
+                wp_update_post(
+                    array(
+                        'ID'          => (int) $page_map[ $path ],
+                        'post_parent' => (int) $slug_map[ $parent ],
+                    )
+                );
+            }
+        }
     }
 
     /**

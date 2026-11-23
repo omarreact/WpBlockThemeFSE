@@ -435,6 +435,73 @@ if ( ! empty( $e2e['navigation_id'] ) ) {
 delete_option( 'pin_site_importer_navigation_id' );
 update_option( 'show_on_front', $previous_show_on_front );
 update_option( 'page_on_front', $previous_page_on_front );
+// Structured JSON source import.
+$structured = $importer->run(
+    array(
+        'repo_url'          => $source_repo,
+        'branch'            => $source_branch,
+        'source_dir'        => 'tests/fixtures/structured-site',
+        'source_format'     => 'json',
+        'post_status'       => 'draft',
+        'import_media'      => false,
+        'import_css'        => true,
+        'import_scripts'    => false,
+        'mirror_assets'     => false,
+        'set_home'          => false,
+        'create_navigation' => false,
+        'import_template_parts' => false,
+        'apply_global'      => false,
+    )
+);
+pin_smoke_assert( ! is_wp_error( $structured ), 'Structured JSON import failed.' );
+pin_smoke_assert( 'json' === ( $structured['source_mode'] ?? '' ), 'Structured JSON mode was not selected.' );
+pin_smoke_assert( 2 === (int) ( $structured['pages_imported'] ?? 0 ), 'Structured JSON pages were not imported.' );
+$structured_home = get_posts(
+    array(
+        'post_type'      => 'page',
+        'post_status'    => 'any',
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+        'meta_key'       => '_pin_import_source_path',
+        'meta_value'     => '__json__/index.html',
+    )
+);
+pin_smoke_assert( ! empty( $structured_home ), 'Structured JSON home page was not persisted.' );
+pin_smoke_assert(
+    str_contains( (string) get_post_meta( (int) $structured_home[0], '_pin_import_css', true ), '--pin-colors-primary' ),
+    'Design tokens were not converted to CSS variables.'
+);
+pin_smoke_assert(
+    'Structured Fixture Home' === (string) get_post_meta( (int) $structured_home[0], '_pin_import_seo_title', true ),
+    'Structured SEO metadata was not persisted.'
+);
+foreach ( (array) $structured['page_ids'] as $structured_page_id ) {
+    wp_delete_post( (int) $structured_page_id, true );
+}
+
+// Explicit WordPress WXR/XML import.
+$wxr_result = $importer->run(
+    array(
+        'repo_url'      => $source_repo,
+        'branch'        => $source_branch,
+        'source_dir'    => 'tests/fixtures/wxr-site',
+        'source_format' => 'wxr',
+        'post_status'   => 'publish',
+    )
+);
+pin_smoke_assert( ! is_wp_error( $wxr_result ), 'WXR import failed.' );
+pin_smoke_assert( 'wxr' === ( $wxr_result['source_mode'] ?? '' ), 'WXR mode was not selected.' );
+pin_smoke_assert( 3 === (int) ( $wxr_result['pages_imported'] ?? 0 ), 'WXR items were not imported.' );
+$wxr_parent = get_page_by_path( 'wxr-parent', OBJECT, 'page' );
+$wxr_child  = get_page_by_path( 'wxr-child', OBJECT, 'page' );
+$wxr_post   = get_page_by_path( 'wxr-post', OBJECT, 'post' );
+pin_smoke_assert( $wxr_parent && $wxr_child && $wxr_post, 'WXR posts/pages were not created.' );
+pin_smoke_assert( (int) $wxr_child->post_parent === (int) $wxr_parent->ID, 'WXR page hierarchy was not restored.' );
+pin_smoke_assert( 'fixture-value' === (string) get_post_meta( $wxr_parent->ID, 'fixture_key', true ), 'WXR public post meta was not imported.' );
+foreach ( (array) $wxr_result['page_ids'] as $wxr_post_id ) {
+    wp_delete_post( (int) $wxr_post_id, true );
+}
+
 delete_option( 'pin_smoke_source_repo' );
 delete_option( 'pin_smoke_source_branch' );
 

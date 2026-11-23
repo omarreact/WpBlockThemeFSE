@@ -1,0 +1,17 @@
+{
+  "site": {
+    "name": "Structured Fixture",
+    "home": "/"
+  },
+  "pages": [
+    {
+      "slug": "/",
+      "title": "Structured Home"
+    },
+    {
+      "slug": "about",
+      "title": "Structured About",
+      "parent": "home"
+    }
+  ]
+}

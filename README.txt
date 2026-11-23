@@ -1,5 +1,5 @@
 PIN Universal FSE
-Version: 0.2.0
+Version: 0.3.0
 Source: https://github.com/omarreact/WpBlockThemeFSE
 WordPress 6.6+ | PHP 8.1+
 
@@ -25,6 +25,9 @@ THEME RESPONSIBILITIES
 
 COMPANION PLUGIN RESPONSIBILITIES
 - GitHub repository inspection through WordPress safe HTTP APIs.
+- Auto source selection: structured JSON first, WordPress WXR/XML second, rendered HTML fallback.
+- site-manifest.json/content.json/design-tokens.json ingestion with structured page metadata, SEO hints and CSS design-token variables.
+- WordPress WXR import for posts/pages, parent relationships, public custom fields, categories and tags.
 - Public repositories plus optional per-request GitHub token for private repos.
   Tokens are never stored.
 - Optional branch and static build-folder selection, e.g. out/ or dist/.
@@ -32,7 +35,8 @@ COMPANION PLUGIN RESPONSIBILITIES
   repository has no root-level HTML (out/, dist/, build/, public/, site/, docs/).
 - Technology detection and bounded static HTML discovery.
 - HTML to native Gutenberg core-block conversion for headings, paragraphs,
-  images, lists, quotes, tables, buttons, structural groups and navigation.
+  images/galleries, lists, quotes, tables, buttons, details, audio/video,
+  responsive column-like groups, structural groups and navigation.
 - Source header/footer extraction into database-backed editable FSE Template
   Parts instead of duplicating them inside every page.
 - Existing user-managed FSE header/footer protection: only importer-owned parts
@@ -96,6 +100,7 @@ GitHub Actions currently performs:
 - Imported navigation injection and source-navigation preservation.
 - Installable pin-universal-fse.zip packaging with the companion plugin bundled
   and development-only tests excluded.
+- Structured JSON and WXR/XML source-path smoke coverage.
 - Real GitHub fixture ingestion into WordPress, including pages, hierarchy,
   CSS/JavaScript/static assets, FSE template parts and navigation.
 - Gutenberg editor-canvas style injection.
