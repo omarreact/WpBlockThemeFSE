@@ -77,6 +77,24 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         $content = '';
         $images  = array();
 
+        foreach ( $xpath->query( '//img[@src]' ) as $image_node ) {
+            if ( ! $image_node instanceof DOMElement ) {
+                continue;
+            }
+
+            $source = trim( $image_node->getAttribute( 'src' ) );
+
+            if ( '' === $source ) {
+                continue;
+            }
+
+            $resolved = $this->resolve_asset_url( $source );
+
+            if ( '' !== $resolved ) {
+                $images[ $source ] = $resolved;
+            }
+        }
+
         if ( $body ) {
             foreach ( $body->childNodes as $child ) {
                 $content .= $this->node_to_block( $child, $images );
@@ -148,11 +166,23 @@ final class PIN_Site_Importer_HTML_To_Blocks {
 
         if ( 'ul' === $tag || 'ol' === $tag ) {
             $ordered = 'ol' === $tag;
+            $class   = $this->class_attribute( $node );
             $attrs   = $ordered ? array( 'ordered' => true ) : array();
-            $html    = wp_kses_post( $document_html = $node->ownerDocument->saveHTML( $node ) );
+
+            if ( '' !== $class ) {
+                $attrs['className'] = $class;
+            }
+
+            $inner = '';
+
+            foreach ( $node->childNodes as $child ) {
+                $inner .= $node->ownerDocument->saveHTML( $child );
+            }
+
+            $list_class = 'wp-block-list' . ( '' !== $class ? ' ' . esc_attr( $class ) : '' );
 
             return '<!-- wp:list' . ( $attrs ? ' ' . wp_json_encode( $attrs ) : '' ) . ' -->'
-                . $html
+                . '<' . $tag . ' class="' . $list_class . '">' . wp_kses_post( $inner ) . '</' . $tag . '>'
                 . '<!-- /wp:list -->';
         }
 
