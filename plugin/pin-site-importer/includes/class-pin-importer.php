@@ -23,6 +23,7 @@ final class PIN_Site_Importer_Importer {
         $import_css     = ! empty( $args['import_css'] );
         $import_scripts = ! empty( $args['import_scripts'] );
         $mirror_assets  = ! empty( $args['mirror_assets'] );
+        $import_external_scripts = ! empty( $args['import_external_scripts'] );
         $set_home       = ! empty( $args['set_home'] );
         $create_navigation = ! empty( $args['create_navigation'] );
         $import_template_parts = ! empty( $args['import_template_parts'] );
@@ -279,6 +280,34 @@ final class PIN_Site_Importer_Importer {
                 }
             } elseif ( ! $import_scripts ) {
                 delete_post_meta( $post_id, '_pin_import_scripts' );
+            }
+
+            if ( $import_external_scripts && ! empty( $converted['external_scripts'] ) ) {
+                $external_scripts = array();
+
+                foreach ( array_slice( (array) $converted['external_scripts'], 0, 16 ) as $script ) {
+                    if ( ! is_array( $script ) || empty( $script['url'] ) ) {
+                        continue;
+                    }
+
+                    $url = esc_url_raw( (string) $script['url'], array( 'http', 'https' ) );
+
+                    if ( '' === $url ) {
+                        continue;
+                    }
+
+                    $external_scripts[] = array(
+                        'url'      => $url,
+                        'type'     => 'module' === ( $script['type'] ?? '' ) ? 'module' : 'classic',
+                        'strategy' => in_array( ( $script['strategy'] ?? '' ), array( 'async', 'defer' ), true )
+                            ? (string) $script['strategy']
+                            : '',
+                    );
+                }
+
+                update_post_meta( $post_id, '_pin_import_external_scripts', $external_scripts );
+            } else {
+                delete_post_meta( $post_id, '_pin_import_external_scripts' );
             }
 
             if ( $path === $preferred_template_source ) {
