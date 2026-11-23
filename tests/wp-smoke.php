@@ -222,7 +222,7 @@ $e2e = $importer->run(
         'branch'                  => $source_branch,
         'source_dir'              => 'tests/fixtures/static-site',
         'post_status'             => 'draft',
-        'import_media'            => false,
+        'import_media'            => true,
         'import_css'              => true,
         'import_scripts'          => true,
         'mirror_assets'           => true,
@@ -240,6 +240,7 @@ pin_smoke_assert(
 pin_smoke_assert( 3 === (int) $e2e['pages_imported'], 'Fixture did not import exactly three pages.' );
 pin_smoke_assert( 0 === (int) $e2e['pages_failed'], 'Fixture import reported failed pages.' );
 pin_smoke_assert( (int) $e2e['assets_mirrored'] >= 3, 'Fixture static assets were not mirrored.' );
+pin_smoke_assert( (int) $e2e['media_imported'] >= 1, 'Fixture repository image was not imported into Media Library.' );
 pin_smoke_assert(
     ! empty( $e2e['template_parts']['header'] ) && ! empty( $e2e['template_parts']['footer'] ),
     'Fixture header/footer were not persisted as FSE template parts.'
@@ -286,9 +287,15 @@ pin_smoke_assert(
     (int) get_post_field( 'post_parent', $team_id ) === $about_id,
     'End-to-end import did not preserve nested page hierarchy.'
 );
+$home_content = (string) get_post_field( 'post_content', $home_id );
 pin_smoke_assert(
-    str_contains( (string) get_post_field( 'post_content', $home_id ), get_permalink( $about_id ) ),
+    str_contains( $home_content, get_permalink( $about_id ) ),
     'End-to-end import did not rewrite an internal page link.'
+);
+pin_smoke_assert(
+    str_contains( $home_content, '/wp-content/uploads/' )
+        && ! str_contains( $home_content, 'raw.githubusercontent.com' ),
+    'End-to-end media import did not replace the repository image with a local Media Library URL.'
 );
 $home_css = (string) get_post_meta( $home_id, '_pin_import_css', true );
 pin_smoke_assert(
@@ -314,6 +321,18 @@ pin_smoke_assert(
     is_array( $external_css )
         && in_array( 'https://cdn.example.com/fixture.css', $external_css, true ),
     'End-to-end import did not preserve external stylesheet metadata.'
+);
+
+$header_part_id = (int) $e2e['template_parts']['header'];
+$global_scripts = get_post_meta( $header_part_id, '_pin_import_scripts', true );
+pin_smoke_assert(
+    is_array( $global_scripts ) && ! empty( $global_scripts ),
+    'Preferred source JavaScript was not persisted as a global FSE header dependency.'
+);
+PIN_Site_Importer_Admin::enqueue_global_imported_assets();
+pin_smoke_assert(
+    wp_style_is( 'pin-site-importer-global', 'enqueued' ),
+    'Imported global FSE CSS was not enqueued for frontend routes.'
 );
 
 $editor_settings = PIN_Site_Importer_Admin::filter_editor_settings(
