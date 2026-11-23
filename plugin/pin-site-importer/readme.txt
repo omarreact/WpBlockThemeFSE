@@ -2,7 +2,7 @@
 Contributors: pincodeit
 Requires at least: 6.6
 Requires PHP: 8.1
-Stable tag: 0.3.0
+Stable tag: 0.3.1
 License: GPL-2.0-or-later
 
 GitHub/static-HTML to native WordPress Gutenberg importer bundled with
@@ -12,6 +12,7 @@ PIN Universal FSE.
 
 * GitHub repository URL, optional branch and request-only token support.
 * Public and token-authorized private repository access.
+* Rate-limit-resistant public file downloads through GitHub raw content, with short repository-inspection caching.
 * Optional static build folder such as out/ or dist/.
 * Technology detection and bounded static HTML discovery.
 * HTML to editable Gutenberg core-block conversion.
