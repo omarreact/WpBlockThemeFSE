@@ -98,6 +98,32 @@ pin_smoke_assert(
     'GitHub repository URL parsing failed.'
 );
 
+$static_roots = $client->detect_static_roots(
+    array(
+        'dist/index.html',
+        'dist/about/index.html',
+        'README.html',
+    )
+);
+pin_smoke_assert(
+    in_array( 'dist', $static_roots, true ),
+    'Static build root detection failed.'
+);
+pin_smoke_assert(
+    '' === $client->recommend_static_root(
+        array( 'index.html', 'dist/index.html' ),
+        array( 'dist' )
+    ),
+    'Root-level HTML should prevent automatic build-folder selection.'
+);
+pin_smoke_assert(
+    'out' === $client->recommend_static_root(
+        array( 'out/index.html', 'out/about/index.html' ),
+        array( 'out' )
+    ),
+    'Clear static build folder was not recommended automatically.'
+);
+
 $parsed = parse_blocks( $result['content'] );
 pin_smoke_assert( ! empty( $parsed ), 'Generated Gutenberg content could not be parsed.' );
 
