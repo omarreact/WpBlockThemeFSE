@@ -3,7 +3,7 @@
  * Plugin Name: PIN Site Importer
  * Plugin URI: https://github.com/omarreact/WpBlockThemeFSE
  * Description: GitHub/JSON/WXR/static-HTML to WordPress Gutenberg importer bundled with PIN Universal FSE.
- * Version: 0.3.2
+ * Version: 0.3.3
  * Requires at least: 6.6
  * Requires PHP: 8.1
  * Author: PINCODE IT
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'PIN_SITE_IMPORTER_VERSION', '0.3.2' );
+define( 'PIN_SITE_IMPORTER_VERSION', '0.3.3' );
 define( 'PIN_SITE_IMPORTER_FILE', __FILE__ );
 define( 'PIN_SITE_IMPORTER_DIR', plugin_dir_path( __FILE__ ) );
 

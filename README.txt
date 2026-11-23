@@ -1,5 +1,5 @@
 PIN Universal FSE
-Version: 0.3.2
+Version: 0.3.3
 Source: https://github.com/omarreact/WpBlockThemeFSE
 WordPress 6.6+ | PHP 8.1+
 
@@ -120,4 +120,6 @@ artifact after both static validation and WordPress integration tests pass.
 
 No production site or domain is changed by this repository alone.
 
-0.3.2: Public structured repositories with an explicit branch can import site-manifest.json/content.json directly from GitHub raw content without repository metadata/tree API discovery.
+0.3.3: Public structured repositories with an explicit branch can import site-manifest.json/content.json directly from GitHub raw content without repository metadata/tree API discovery.
+
+0.3.3: SVG/restricted image MIME types fall back to safe static mirroring, referenced CSS up to 1 MiB per file is supported with a 2 MiB per-page aggregate ceiling, mirrored asset counts include referenced assets, and repeated warnings are deduplicated.

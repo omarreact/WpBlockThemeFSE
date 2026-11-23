@@ -2,7 +2,7 @@
 Contributors: pincodeit
 Requires at least: 6.6
 Requires PHP: 8.1
-Stable tag: 0.3.2
+Stable tag: 0.3.3
 License: GPL-2.0-or-later
 
 GitHub/static-HTML to native WordPress Gutenberg importer bundled with
@@ -71,5 +71,10 @@ then WordPress WXR/XML exports, then rendered HTML. WXR imports posts/pages,
 hierarchy, public custom fields, categories and tags. JSON pages are normalized
 through the same Gutenberg/FSE pipeline used by HTML imports.
 
-= 0.3.2 =
+= 0.3.3 =
 * Added API-free structured JSON fast path for public repositories with an explicit branch, avoiding GitHub metadata/tree rate limits when site-manifest.json or content.json is present.
+
+= 0.3.3 =
+* Mirror repository SVGs and host-rejected safe image MIME types as static assets without weakening WordPress upload permissions.
+* Raise referenced CSS fetch/aggregate safety limits for production static sites.
+* Count referenced static mirrors and deduplicate repeated import warnings.

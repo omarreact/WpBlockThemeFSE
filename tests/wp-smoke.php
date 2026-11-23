@@ -311,6 +311,15 @@ pin_smoke_assert( 0 === (int) $e2e['pages_failed'], 'Fixture import reported fai
 pin_smoke_assert( (int) $e2e['assets_mirrored'] >= 3, 'Fixture static assets were not mirrored.' );
 pin_smoke_assert( (int) $e2e['media_imported'] >= 1, 'Fixture repository image was not imported into Media Library.' );
 pin_smoke_assert(
+    empty(
+        array_filter(
+            (array) $e2e['warnings'],
+            static fn( $warning ) => str_contains( (string) $warning, 'Media Library import failed' )
+        )
+    ),
+    'Safe media fallback still emitted a Media Library failure warning.'
+);
+pin_smoke_assert(
     ! empty( $e2e['template_parts']['header'] ) && ! empty( $e2e['template_parts']['footer'] ),
     'Fixture header/footer were not persisted as FSE template parts.'
 );
@@ -373,6 +382,11 @@ pin_smoke_assert(
         && ! str_contains( $home_content, 'raw.githubusercontent.com' ),
     'End-to-end media import did not replace the repository image with a local Media Library URL.'
 );
+pin_smoke_assert(
+    str_contains( $home_content, 'pin-site-importer' )
+        && str_contains( $home_content, 'icon.svg' ),
+    'Repository SVG image was not rewritten to a safe static mirrored URL.'
+);
 $home_css = (string) get_post_meta( $home_id, '_pin_import_css', true );
 pin_smoke_assert(
     '' !== $home_css,
@@ -381,6 +395,10 @@ pin_smoke_assert(
 pin_smoke_assert(
     str_contains( $home_css, '.fixture-critical' ),
     'End-to-end import did not preserve embedded critical CSS.'
+);
+pin_smoke_assert(
+    str_contains( $home_css, '.fixture-large-tail' ),
+    'Referenced CSS above the previous 256 KiB fetch ceiling was not preserved.'
 );
 pin_smoke_assert(
     str_contains( $home_css, 'pin-site-importer' )

@@ -45,8 +45,8 @@ jobs:
 
       - name: Verify release versions
         run: |
-          grep -q "Version: 0.3.2" style.css
-          grep -q "Version: 0.3.2" plugin/pin-site-importer/pin-site-importer.php
+          grep -q "Version: 0.3.3" style.css
+          grep -q "Version: 0.3.3" plugin/pin-site-importer/pin-site-importer.php
 
   wordpress-integration:
     runs-on: ubuntu-latest

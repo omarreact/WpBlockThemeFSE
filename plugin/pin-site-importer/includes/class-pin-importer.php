@@ -7,7 +7,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class PIN_Site_Importer_Importer {
     private const MAX_PAGES = 75;
-    private const MAX_CSS_BYTES_PER_PAGE = 524288;
+    private const MAX_CSS_BYTES_PER_PAGE = 2097152;
 
     /**
      * @param array<string,mixed> $args
@@ -314,20 +314,20 @@ final class PIN_Site_Importer_Importer {
             $footer_content = (string) ( $converted['footer_content'] ?? '' );
 
             if ( $import_media && ! empty( $converted['images'] ) ) {
-                $media_result = $this->sideload_images( $post_id, $content, $converted['images'], $github, $repository );
+                $media_result = $this->sideload_images( $post_id, $content, $converted['images'], $github, $repository, $assets );
                 $content      = $media_result['content'];
                 $result['media_imported'] += $media_result['count'];
                 $result['warnings']        = array_merge( $result['warnings'], $media_result['warnings'] );
 
                 if ( '' !== $header_content ) {
-                    $header_media = $this->sideload_images( $post_id, $header_content, $converted['images'], $github, $repository );
+                    $header_media = $this->sideload_images( $post_id, $header_content, $converted['images'], $github, $repository, $assets );
                     $header_content = $header_media['content'];
                     $result['media_imported'] += $header_media['count'];
                     $result['warnings'] = array_merge( $result['warnings'], $header_media['warnings'] );
                 }
 
                 if ( '' !== $footer_content ) {
-                    $footer_media = $this->sideload_images( $post_id, $footer_content, $converted['images'], $github, $repository );
+                    $footer_media = $this->sideload_images( $post_id, $footer_content, $converted['images'], $github, $repository, $assets );
                     $footer_content = $footer_media['content'];
                     $result['media_imported'] += $footer_media['count'];
                     $result['warnings'] = array_merge( $result['warnings'], $footer_media['warnings'] );
@@ -505,6 +505,8 @@ final class PIN_Site_Importer_Importer {
             $result['page_ids'][] = $post_id;
         }
 
+        $result['assets_mirrored'] = $assets->get_mirrored_count();
+
         if ( 0 === (int) $result['pages_imported'] && (int) $result['pages_failed'] > 0 ) {
             $first_warning = '';
 
@@ -549,7 +551,7 @@ final class PIN_Site_Importer_Importer {
                 (array) $repository['tree'],
                 $source_dir
             );
-            $result['assets_mirrored'] = (int) $asset_mirror['count'];
+            $result['assets_mirrored'] = $assets->get_mirrored_count();
 
             if ( ! empty( $asset_mirror['warnings'] ) ) {
                 $result['warnings'] = array_merge(
@@ -720,6 +722,15 @@ final class PIN_Site_Importer_Importer {
             }
         }
 
+        $result['warnings'] = array_values(
+            array_unique(
+                array_filter(
+                    array_map( 'strval', (array) $result['warnings'] ),
+                    static fn( $warning ) => '' !== trim( $warning )
+                )
+            )
+        );
+
         $this->store_history( $result );
 
         return $result;
@@ -884,7 +895,8 @@ final class PIN_Site_Importer_Importer {
         string $content,
         array $images,
         PIN_Site_Importer_GitHub_Client $github,
-        array $repository
+        array $repository,
+        PIN_Site_Importer_Asset_Manager $assets
     ): array {
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/file.php';
@@ -898,8 +910,9 @@ final class PIN_Site_Importer_Importer {
                 continue;
             }
 
-            $remote_url = esc_url_raw( (string) ( $descriptor['url'] ?? '' ) );
-            $repo_path  = (string) ( $descriptor['path'] ?? '' );
+            $remote_url     = esc_url_raw( (string) ( $descriptor['url'] ?? '' ) );
+            $repo_path      = (string) ( $descriptor['path'] ?? '' );
+            $attachment_url = '';
 
             if ( '' === $remote_url ) {
                 continue;
@@ -917,7 +930,28 @@ final class PIN_Site_Importer_Importer {
                 . ':'
                 . $repo_path;
 
-            $existing = get_posts(
+            $extension = strtolower( pathinfo( $repo_path, PATHINFO_EXTENSION ) );
+
+            // Many WordPress hosts intentionally block SVG uploads. Preserve
+            // repository SVGs by mirroring them as static assets rather than
+            // changing the site's global upload MIME policy.
+            if ( 'svg' === $extension ) {
+                $mirrored = $assets->mirror( $repo_path, 4194304 );
+
+                if ( is_wp_error( $mirrored ) ) {
+                    $warnings[] = sprintf(
+                        /* translators: 1: repository path, 2: error message. */
+                        __( 'SVG mirror failed for %1$s: %2$s', 'pin-site-importer' ),
+                        $repo_path,
+                        $mirrored->get_error_message()
+                    );
+                    continue;
+                }
+
+                $attachment_url = $mirrored;
+            }
+
+            $existing = 'svg' === $extension ? array() : get_posts(
                 array(
                     'post_type'      => 'attachment',
                     'post_status'    => 'inherit',
@@ -928,7 +962,9 @@ final class PIN_Site_Importer_Importer {
                 )
             );
 
-            if ( $existing ) {
+            if ( 'svg' === $extension ) {
+                // Static mirror already resolved above.
+            } elseif ( $existing ) {
                 $attachment_url = wp_get_attachment_url( (int) $existing[0] );
             } else {
                 $binary = $github->get_file(
@@ -983,19 +1019,29 @@ final class PIN_Site_Importer_Importer {
 
                 if ( is_wp_error( $attachment_id ) ) {
                     @unlink( $tmp ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-                    $warnings[] = sprintf(
-                        /* translators: 1: repository path, 2: error message. */
-                        __( 'Media Library import failed for %1$s: %2$s', 'pin-site-importer' ),
-                        $repo_path,
-                        $attachment_id->get_error_message()
-                    );
-                    continue;
-                }
 
-                update_post_meta( (int) $attachment_id, '_pin_import_repo_asset', $asset_key );
-                update_post_meta( (int) $attachment_id, '_source_url', $remote_url );
-                $attachment_url = wp_get_attachment_url( (int) $attachment_id );
-                ++$count;
+                    // Managed hosts can reject otherwise safe image MIME types.
+                    // Fall back to the static mirror instead of breaking the
+                    // imported design or weakening global upload permissions.
+                    $mirrored = $assets->mirror( $repo_path, 10485760 );
+
+                    if ( is_wp_error( $mirrored ) ) {
+                        $warnings[] = sprintf(
+                            /* translators: 1: repository path, 2: error message. */
+                            __( 'Media Library import failed for %1$s: %2$s', 'pin-site-importer' ),
+                            $repo_path,
+                            $attachment_id->get_error_message()
+                        );
+                        continue;
+                    }
+
+                    $attachment_url = $mirrored;
+                } else {
+                    update_post_meta( (int) $attachment_id, '_pin_import_repo_asset', $asset_key );
+                    update_post_meta( (int) $attachment_id, '_source_url', $remote_url );
+                    $attachment_url = wp_get_attachment_url( (int) $attachment_id );
+                    ++$count;
+                }
             }
 
             if ( $attachment_url ) {
@@ -1041,7 +1087,7 @@ final class PIN_Site_Importer_Importer {
                 $repository['repo'],
                 $repository['branch'],
                 $css_path,
-                262144
+                1048576
             );
 
             if ( is_wp_error( $css ) ) {
