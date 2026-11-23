@@ -50,7 +50,8 @@ $result = $converter->convert(
     '<!doctype html><html><head><title>Smoke Page</title>'
     . '<link rel="stylesheet" href="assets/site.css">'
     . '<link rel="stylesheet" href="https://cdn.example.com/theme.css">'
-    . '<script src="assets/site.js" defer></script></head><body>'
+    . '<script src="assets/site.js" defer></script>'
+    . '<script src="https://cdn.example.com/library.js" async></script></head><body>'
     . '<header class="source-header"><nav><a href="index.html">Home</a><a href="about/index.html">About</a></nav></header>'
     . '<main class="site-main" style="padding:20px;color:#111">'
     . '<h1>Hello WordPress</h1><p>Editable paragraph.</p>'
@@ -74,6 +75,11 @@ pin_smoke_assert( in_array( 'https://cdn.example.com/theme.css', $result['extern
 pin_smoke_assert(
     ! empty( $result['scripts'][0]['path'] ) && 'assets/site.js' === $result['scripts'][0]['path'],
     'JavaScript reference was not extracted.'
+);
+pin_smoke_assert(
+    ! empty( $result['external_scripts'][0]['url'] )
+        && 'https://cdn.example.com/library.js' === $result['external_scripts'][0]['url'],
+    'External JavaScript dependency was not detected.'
 );
 pin_smoke_assert(
     'assets/image.png' === $client->resolve_path( 'index.html', 'assets/image.png' ),
