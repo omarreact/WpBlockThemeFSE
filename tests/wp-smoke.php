@@ -47,8 +47,11 @@ $converter = new PIN_Site_Importer_HTML_To_Blocks(
 );
 
 $result = $converter->convert(
-    '<!doctype html><html><head><title>Smoke Page</title></head><body>'
-    . '<main class="site-main"><h1>Hello WordPress</h1><p>Editable paragraph.</p>'
+    '<!doctype html><html><head><title>Smoke Page</title>'
+    . '<link rel="stylesheet" href="assets/site.css">'
+    . '<script src="assets/site.js" defer></script></head><body>'
+    . '<main class="site-main" style="padding:20px;color:#111">'
+    . '<h1>Hello WordPress</h1><p>Editable paragraph.</p>'
     . '<ul><li>One</li><li>Two</li></ul></main></body></html>'
 );
 
@@ -57,6 +60,23 @@ pin_smoke_assert( 'Smoke Page' === $result['title'], 'HTML title was not extract
 pin_smoke_assert( str_contains( $result['content'], '<!-- wp:heading' ), 'Heading block was not generated.' );
 pin_smoke_assert( str_contains( $result['content'], '<!-- wp:paragraph' ), 'Paragraph block was not generated.' );
 pin_smoke_assert( str_contains( $result['content'], '<!-- wp:list' ), 'List block was not generated.' );
+pin_smoke_assert( ! empty( $result['inline_css'] ), 'Safe inline styles were not preserved.' );
+pin_smoke_assert( in_array( 'assets/site.css', $result['stylesheets'], true ), 'Stylesheet reference was not extracted.' );
+pin_smoke_assert(
+    ! empty( $result['scripts'][0]['path'] ) && 'assets/site.js' === $result['scripts'][0]['path'],
+    'JavaScript reference was not extracted.'
+);
+pin_smoke_assert(
+    'assets/image.png' === $client->resolve_path( 'index.html', 'assets/image.png' ),
+    'Repository path resolution failed.'
+);
+$parsed_repo = $client->parse_repository( 'https://github.com/example/site' );
+pin_smoke_assert(
+    ! is_wp_error( $parsed_repo )
+        && 'example' === $parsed_repo['owner']
+        && 'site' === $parsed_repo['repo'],
+    'GitHub repository URL parsing failed.'
+);
 
 $parsed = parse_blocks( $result['content'] );
 pin_smoke_assert( ! empty( $parsed ), 'Generated Gutenberg content could not be parsed.' );
