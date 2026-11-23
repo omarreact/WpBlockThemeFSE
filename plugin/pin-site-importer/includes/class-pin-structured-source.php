@@ -499,7 +499,23 @@ final class PIN_Site_Importer_Structured_Source {
                 $commentdata['comment_date'] = $comment_date;
             }
 
-            $new_id = wp_insert_comment( wp_filter_comment( $commentdata ) );
+            $existing_comments = get_comments(
+                array(
+                    'post_id'    => $post_id,
+                    'number'     => 1,
+                    'status'     => 'all',
+                    'meta_key'   => '_pin_import_wxr_comment_id',
+                    'meta_value' => (string) $old_id,
+                )
+            );
+
+            if ( $existing_comments ) {
+                $new_id = (int) $existing_comments[0]->comment_ID;
+                $commentdata['comment_ID'] = $new_id;
+                wp_update_comment( wp_filter_comment( $commentdata ) );
+            } else {
+                $new_id = wp_insert_comment( wp_filter_comment( $commentdata ) );
+            }
 
             if ( ! $new_id ) {
                 $warnings[] = __( 'A WXR comment could not be imported.', 'pin-site-importer' );
@@ -507,6 +523,7 @@ final class PIN_Site_Importer_Structured_Source {
             }
 
             $new_id = (int) $new_id;
+            update_comment_meta( $new_id, '_pin_import_wxr_comment_id', $old_id );
             $id_map[ $old_id ]     = $new_id;
             $parent_map[ $new_id ] = absint( $this->xpath_text( $xpath, 'wp:comment_parent', $comment_node ) );
 
@@ -543,6 +560,21 @@ final class PIN_Site_Importer_Structured_Source {
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
+
+        $existing = get_posts(
+            array(
+                'post_type'      => 'attachment',
+                'post_status'    => 'inherit',
+                'posts_per_page' => 1,
+                'fields'         => 'ids',
+                'meta_key'       => '_source_url',
+                'meta_value'     => $url,
+            )
+        );
+
+        if ( $existing ) {
+            return (int) $existing[0];
+        }
 
         $tmp = download_url( $url, 20 );
 
