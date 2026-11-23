@@ -10,6 +10,7 @@ final class PIN_Site_Importer_Admin {
         add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
         add_action( 'admin_post_pin_site_importer_run', array( __CLASS__, 'handle_import' ) );
         add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_imported_css' ), 50 );
+        add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_imported_scripts' ), 60 );
         add_action( 'enqueue_block_editor_assets', array( __CLASS__, 'enqueue_editor_css' ), 50 );
         add_filter( 'render_block_data', array( __CLASS__, 'inject_navigation_ref' ), 10, 2 );
     }
@@ -89,6 +90,7 @@ final class PIN_Site_Importer_Admin {
                         <td>
                             <label><input type="checkbox" name="import_media" value="1" checked> <?php esc_html_e( 'Import repository images into Media Library', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="import_css" value="1" checked> <?php esc_html_e( 'Preserve referenced repository CSS on imported pages', 'pin-site-importer' ); ?></label><br>
+                            <label><input type="checkbox" name="import_scripts" value="1" checked> <?php esc_html_e( 'Mirror and load repository JavaScript referenced by imported pages', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="set_home" value="1"> <?php esc_html_e( 'Set root index.html as the WordPress homepage', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="create_navigation" value="1" checked> <?php esc_html_e( 'Create/update WordPress Navigation from imported pages', 'pin-site-importer' ); ?></label>
                         </td>
@@ -153,6 +155,7 @@ final class PIN_Site_Importer_Admin {
                 'post_status'  => isset( $_POST['post_status'] ) ? sanitize_key( wp_unslash( $_POST['post_status'] ) ) : 'draft',
                 'import_media' => ! empty( $_POST['import_media'] ),
                 'import_css'   => ! empty( $_POST['import_css'] ),
+                'import_scripts' => ! empty( $_POST['import_scripts'] ),
                 'set_home'     => ! empty( $_POST['set_home'] ),
                 'create_navigation' => ! empty( $_POST['create_navigation'] ),
             )
@@ -238,6 +241,43 @@ final class PIN_Site_Importer_Admin {
         wp_add_inline_style( 'pin-site-importer-page', $css );
     }
 
+    public static function enqueue_imported_scripts(): void {
+        if ( ! is_singular( 'page' ) ) {
+            return;
+        }
+
+        $post_id = get_queried_object_id();
+        $scripts = get_post_meta( $post_id, '_pin_import_scripts', true );
+
+        if ( ! is_array( $scripts ) || ! $scripts ) {
+            return;
+        }
+
+        foreach ( $scripts as $index => $script ) {
+            if ( ! is_array( $script ) || empty( $script['url'] ) ) {
+                continue;
+            }
+
+            $handle   = 'pin-imported-' . $post_id . '-' . absint( $index );
+            $url      = esc_url_raw( (string) $script['url'] );
+            $type     = (string) ( $script['type'] ?? 'classic' );
+            $strategy = (string) ( $script['strategy'] ?? '' );
+
+            if ( 'module' === $type && function_exists( 'wp_enqueue_script_module' ) ) {
+                wp_enqueue_script_module( $handle, $url, array(), null );
+                continue;
+            }
+
+            $args = array( 'in_footer' => true );
+
+            if ( in_array( $strategy, array( 'async', 'defer' ), true ) ) {
+                $args['strategy'] = $strategy;
+            }
+
+            wp_enqueue_script( $handle, $url, array(), null, $args );
+        }
+    }
+
     public static function enqueue_editor_css(): void {
         $post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0;
 
@@ -295,11 +335,12 @@ final class PIN_Site_Importer_Admin {
                 <?php
                 echo esc_html(
                     sprintf(
-                        /* translators: 1: imported page count, 2: failed page count, 3: media count. */
-                        __( '%1$d pages imported, %2$d failed, %3$d media files added.', 'pin-site-importer' ),
+                        /* translators: 1: imported page count, 2: failed page count, 3: media count, 4: script count. */
+                        __( '%1$d pages imported, %2$d failed, %3$d media files added; %4$d scripts mirrored.', 'pin-site-importer' ),
                         (int) ( $data['pages_imported'] ?? 0 ),
                         (int) ( $data['pages_failed'] ?? 0 ),
-                        (int) ( $data['media_imported'] ?? 0 )
+                        (int) ( $data['media_imported'] ?? 0 ),
+                        (int) ( $data['scripts_mirrored'] ?? 0 )
                     )
                 );
                 ?>
