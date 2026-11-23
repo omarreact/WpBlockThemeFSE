@@ -27,6 +27,8 @@ final class PIN_Site_Importer_Importer {
         $set_home       = ! empty( $args['set_home'] );
         $create_navigation = ! empty( $args['create_navigation'] );
         $import_template_parts = ! empty( $args['import_template_parts'] );
+        $apply_global_requested = ! empty( $args['apply_global'] );
+        $apply_global = $apply_global_requested && 'publish' === $post_status;
         $github         = new PIN_Site_Importer_GitHub_Client( $token );
         $repository     = $github->inspect_repository( $repo_url, $branch );
 
@@ -100,7 +102,15 @@ final class PIN_Site_Importer_Importer {
             'page_ids'         => array(),
             'navigation_id'    => 0,
             'template_parts'   => array(),
+            'global_applied'   => $apply_global,
         );
+
+        if ( $apply_global_requested && ! $apply_global ) {
+            $result['warnings'][] = __(
+                'Global header/footer/navigation/homepage changes were not applied because imported pages are drafts. Publish the import and explicitly enable global application to change the live site.',
+                'pin-site-importer'
+            );
+        }
 
         if ( $mirror_assets ) {
             $asset_mirror = $assets->mirror_tree_assets(
@@ -362,7 +372,8 @@ final class PIN_Site_Importer_Importer {
                     $part_content,
                     $repository['full_name'],
                     $repository['branch'],
-                    (string) $preferred_template_source
+                    (string) $preferred_template_source,
+                    $apply_global
                 );
 
                 if ( is_wp_error( $part_id ) ) {
@@ -397,7 +408,11 @@ final class PIN_Site_Importer_Importer {
         }
 
         if ( $create_navigation ) {
-            $navigation_id = $this->create_navigation( $page_map, $repository['full_name'] );
+            $navigation_id = $this->create_navigation(
+                $page_map,
+                $repository['full_name'],
+                $apply_global
+            );
 
             if ( is_wp_error( $navigation_id ) ) {
                 $result['warnings'][] = $navigation_id->get_error_message();
@@ -407,12 +422,19 @@ final class PIN_Site_Importer_Importer {
         }
 
         if ( $set_home ) {
-            $home_path = $this->find_home_path( $html_files, $source_dir );
+            if ( ! $apply_global ) {
+                $result['warnings'][] = __(
+                    'The WordPress homepage was not changed because global application was not enabled for a published import.',
+                    'pin-site-importer'
+                );
+            } else {
+                $home_path = $this->find_home_path( $html_files, $source_dir );
 
-            if ( $home_path && isset( $page_map[ $home_path ] ) ) {
-                update_option( 'show_on_front', 'page' );
-                update_option( 'page_on_front', (int) $page_map[ $home_path ] );
-                $result['home_page_id'] = (int) $page_map[ $home_path ];
+                if ( $home_path && isset( $page_map[ $home_path ] ) ) {
+                    update_option( 'show_on_front', 'page' );
+                    update_option( 'page_on_front', (int) $page_map[ $home_path ] );
+                    $result['home_page_id'] = (int) $page_map[ $home_path ];
+                }
             }
         }
 
@@ -774,7 +796,8 @@ final class PIN_Site_Importer_Importer {
         string $content,
         string $repository,
         string $branch,
-        string $source_path
+        string $source_path,
+        bool $activate_global = false
     ) {
         if ( ! post_type_exists( 'wp_template_part' ) ) {
             return new WP_Error(
@@ -784,12 +807,16 @@ final class PIN_Site_Importer_Importer {
         }
 
         $theme = get_stylesheet();
+        $part_slug = $activate_global
+            ? $area
+            : 'pin-imported-' . $area . '-' . substr( md5( $repository ), 0, 12 );
+
         $existing = get_posts(
             array(
                 'post_type'      => 'wp_template_part',
                 'post_status'    => array( 'publish', 'draft', 'auto-draft' ),
                 'posts_per_page' => 1,
-                'name'           => $area,
+                'name'           => $part_slug,
                 'tax_query'      => array(
                     array(
                         'taxonomy' => 'wp_theme',
@@ -803,10 +830,14 @@ final class PIN_Site_Importer_Importer {
         $postarr = array(
             'post_type'    => 'wp_template_part',
             'post_status'  => 'publish',
-            'post_name'    => $area,
+            'post_name'    => $part_slug,
             'post_title'   => 'header' === $area
-                ? __( 'Imported Site Header', 'pin-site-importer' )
-                : __( 'Imported Site Footer', 'pin-site-importer' ),
+                ? ( $activate_global
+                    ? __( 'Imported Site Header', 'pin-site-importer' )
+                    : __( 'Imported Site Header (Preview)', 'pin-site-importer' ) )
+                : ( $activate_global
+                    ? __( 'Imported Site Footer', 'pin-site-importer' )
+                    : __( 'Imported Site Footer (Preview)', 'pin-site-importer' ) ),
             'post_content' => $content,
         );
 
@@ -859,7 +890,11 @@ final class PIN_Site_Importer_Importer {
      * @param array<string,int> $page_map
      * @return int|WP_Error
      */
-    private function create_navigation( array $page_map, string $repository ) {
+    private function create_navigation(
+        array $page_map,
+        string $repository,
+        bool $activate_global = false
+    ) {
         if ( ! post_type_exists( 'wp_navigation' ) ) {
             return new WP_Error(
                 'pin_navigation_post_type_missing',
@@ -927,7 +962,10 @@ final class PIN_Site_Importer_Importer {
         }
 
         update_post_meta( $navigation_id, '_pin_import_source_repo', $repository );
-        update_option( 'pin_site_importer_navigation_id', (int) $navigation_id, false );
+
+        if ( $activate_global ) {
+            update_option( 'pin_site_importer_navigation_id', (int) $navigation_id, false );
+        }
 
         return (int) $navigation_id;
     }
