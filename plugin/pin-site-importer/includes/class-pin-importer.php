@@ -60,7 +60,7 @@ final class PIN_Site_Importer_Importer {
             }
 
             if ( null === $structured_json && in_array( $source_format, array( 'auto', 'wxr' ), true ) ) {
-                $wxr_result = $structured_source->import_wxr( $source_dir, $post_status );
+                $wxr_result = $structured_source->import_wxr( $source_dir, $post_status, $import_media );
 
                 if ( is_wp_error( $wxr_result ) ) {
                     return $wxr_result;
