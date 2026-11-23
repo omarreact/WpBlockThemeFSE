@@ -364,12 +364,12 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         $query  = '';
 
         if ( false !== strpos( $href, '#' ) ) {
-            array( $href, $anchor_part ) = explode( '#', $href, 2 );
+            list( $href, $anchor_part ) = explode( '#', $href, 2 );
             $anchor = '#' . sanitize_title( $anchor_part );
         }
 
         if ( false !== strpos( $href, '?' ) ) {
-            array( $href, $query_part ) = explode( '?', $href, 2 );
+            list( $href, $query_part ) = explode( '?', $href, 2 );
             $query = '?' . sanitize_text_field( $query_part );
         }
 
