@@ -1,5 +1,5 @@
 PIN Universal FSE
-Version: 0.3.1
+Version: 0.3.2
 Source: https://github.com/omarreact/WpBlockThemeFSE
 WordPress 6.6+ | PHP 8.1+
 
@@ -119,3 +119,5 @@ The validation workflow also produces an installable pin-universal-fse.zip
 artifact after both static validation and WordPress integration tests pass.
 
 No production site or domain is changed by this repository alone.
+
+0.3.2: Public structured repositories with an explicit branch can import site-manifest.json/content.json directly from GitHub raw content without repository metadata/tree API discovery.

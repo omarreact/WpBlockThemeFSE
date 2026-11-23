@@ -253,7 +253,7 @@ final class PIN_Site_Importer_GitHub_Client {
      *
      * @return string|WP_Error
      */
-    private function get_public_raw_file(
+    public function get_public_raw_file(
         string $owner,
         string $repo,
         string $branch,
