@@ -2,8 +2,8 @@
 /**
  * Plugin Name: PIN Site Importer
  * Plugin URI: https://github.com/omarreact/WpBlockThemeFSE
- * Description: Companion importer foundation for PIN Universal FSE. Import and conversion logic lives here so site functionality remains independent from the active theme.
- * Version: 0.1.0
+ * Description: GitHub/static-HTML to WordPress Gutenberg importer bundled with PIN Universal FSE.
+ * Version: 0.2.0
  * Requires at least: 6.6
  * Requires PHP: 8.1
  * Author: PINCODE IT
@@ -13,57 +13,41 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'PIN_SITE_IMPORTER_VERSION', '0.1.0' );
+define( 'PIN_SITE_IMPORTER_VERSION', '0.2.0' );
 define( 'PIN_SITE_IMPORTER_FILE', __FILE__ );
 define( 'PIN_SITE_IMPORTER_DIR', plugin_dir_path( __FILE__ ) );
 
-/**
- * Register the importer administration screen.
- */
-function pin_site_importer_admin_menu(): void {
-    add_management_page(
-        __( 'PIN Site Importer', 'pin-site-importer' ),
-        __( 'PIN Site Importer', 'pin-site-importer' ),
-        'manage_options',
-        'pin-site-importer',
-        'pin_site_importer_render_admin_page'
-    );
-}
-add_action( 'admin_menu', 'pin_site_importer_admin_menu' );
+$pin_site_importer_files = array(
+    'includes/class-pin-github-client.php',
+    'includes/class-pin-html-to-blocks.php',
+    'includes/class-pin-importer.php',
+    'includes/class-pin-admin.php',
+);
 
-/**
- * Render the importer foundation status screen.
- */
-function pin_site_importer_render_admin_page(): void {
-    if ( ! current_user_can( 'manage_options' ) ) {
+foreach ( $pin_site_importer_files as $pin_site_importer_file ) {
+    $pin_site_importer_path = PIN_SITE_IMPORTER_DIR . $pin_site_importer_file;
+
+    if ( ! file_exists( $pin_site_importer_path ) ) {
+        add_action(
+            'admin_notices',
+            static function () use ( $pin_site_importer_file ): void {
+                if ( current_user_can( 'manage_options' ) ) {
+                    echo '<div class="notice notice-error"><p>'
+                        . esc_html(
+                            sprintf(
+                                /* translators: %s: missing plugin file. */
+                                __( 'PIN Site Importer is incomplete. Missing file: %s', 'pin-site-importer' ),
+                                $pin_site_importer_file
+                            )
+                        )
+                        . '</p></div>';
+                }
+            }
+        );
         return;
     }
-    ?>
-    <div class="wrap">
-        <h1><?php esc_html_e( 'PIN Site Importer', 'pin-site-importer' ); ?></h1>
-        <p>
-            <?php esc_html_e(
-                'The companion plugin is installed and active. GitHub/HTML analysis, Gutenberg conversion, media import, page creation, and navigation import will be implemented in this plugin rather than in the theme.',
-                'pin-site-importer'
-            ); ?>
-        </p>
 
-        <table class="widefat striped" style="max-width:900px">
-            <tbody>
-                <tr>
-                    <th scope="row"><?php esc_html_e( 'Plugin status', 'pin-site-importer' ); ?></th>
-                    <td><?php esc_html_e( 'Active', 'pin-site-importer' ); ?></td>
-                </tr>
-                <tr>
-                    <th scope="row"><?php esc_html_e( 'Version', 'pin-site-importer' ); ?></th>
-                    <td><?php echo esc_html( PIN_SITE_IMPORTER_VERSION ); ?></td>
-                </tr>
-                <tr>
-                    <th scope="row"><?php esc_html_e( 'Theme integration', 'pin-site-importer' ); ?></th>
-                    <td><?php esc_html_e( 'Bundled with PIN Universal FSE and installed as a normal WordPress plugin.', 'pin-site-importer' ); ?></td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    <?php
+    require_once $pin_site_importer_path;
 }
+
+PIN_Site_Importer_Admin::register();
