@@ -62,7 +62,7 @@ jobs:
           package-manager-cache: false
 
       - name: Install wp-env
-        run: npm install --global @wordpress/env
+        run: npm install --global @wordpress/env@10.0.2
 
       - name: Start WordPress
         run: wp-env start
@@ -93,7 +93,7 @@ jobs:
 
       - name: Stop WordPress
         if: always()
-        run: wp-env stop
+        run: command -v wp-env >/dev/null 2>&1 && wp-env stop || true
 
 
   package:
