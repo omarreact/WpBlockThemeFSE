@@ -92,6 +92,7 @@ final class PIN_Site_Importer_Admin {
                             <label><input type="checkbox" name="import_css" value="1" checked> <?php esc_html_e( 'Preserve referenced repository CSS on imported pages', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="import_scripts" value="1" checked> <?php esc_html_e( 'Mirror and load repository JavaScript referenced by imported pages', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="mirror_assets" value="1" checked> <?php esc_html_e( 'Mirror safe static build assets/chunks/fonts into WordPress uploads', 'pin-site-importer' ); ?></label><br>
+                            <label><input type="checkbox" name="import_external_scripts" value="1"> <?php esc_html_e( 'Load external/CDN JavaScript (trusted repositories only)', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="set_home" value="1"> <?php esc_html_e( 'Set root index.html as the WordPress homepage', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="create_navigation" value="1" checked> <?php esc_html_e( 'Create/update WordPress Navigation from imported pages', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="import_template_parts" value="1" checked> <?php esc_html_e( 'Import source header/footer as editable FSE template parts', 'pin-site-importer' ); ?></label>
@@ -159,6 +160,7 @@ final class PIN_Site_Importer_Admin {
                 'import_css'   => ! empty( $_POST['import_css'] ),
                 'import_scripts' => ! empty( $_POST['import_scripts'] ),
                 'mirror_assets' => ! empty( $_POST['mirror_assets'] ),
+                'import_external_scripts' => ! empty( $_POST['import_external_scripts'] ),
                 'set_home'     => ! empty( $_POST['set_home'] ),
                 'create_navigation' => ! empty( $_POST['create_navigation'] ),
                 'import_template_parts' => ! empty( $_POST['import_template_parts'] ),
@@ -270,6 +272,41 @@ final class PIN_Site_Importer_Admin {
 
             $handle   = 'pin-imported-' . $post_id . '-' . absint( $index );
             $url      = esc_url_raw( (string) $script['url'] );
+            $type     = (string) ( $script['type'] ?? 'classic' );
+            $strategy = (string) ( $script['strategy'] ?? '' );
+
+            if ( 'module' === $type && function_exists( 'wp_enqueue_script_module' ) ) {
+                wp_enqueue_script_module( $handle, $url, array(), null );
+                continue;
+            }
+
+            $args = array( 'in_footer' => true );
+
+            if ( in_array( $strategy, array( 'async', 'defer' ), true ) ) {
+                $args['strategy'] = $strategy;
+            }
+
+            wp_enqueue_script( $handle, $url, array(), null, $args );
+        }
+
+        $external_scripts = get_post_meta( $post_id, '_pin_import_external_scripts', true );
+
+        if ( ! is_array( $external_scripts ) ) {
+            return;
+        }
+
+        foreach ( array_slice( $external_scripts, 0, 16 ) as $index => $script ) {
+            if ( ! is_array( $script ) || empty( $script['url'] ) ) {
+                continue;
+            }
+
+            $url = esc_url_raw( (string) $script['url'], array( 'http', 'https' ) );
+
+            if ( '' === $url ) {
+                continue;
+            }
+
+            $handle   = 'pin-imported-external-' . $post_id . '-' . absint( $index );
             $type     = (string) ( $script['type'] ?? 'classic' );
             $strategy = (string) ( $script['strategy'] ?? '' );
 
