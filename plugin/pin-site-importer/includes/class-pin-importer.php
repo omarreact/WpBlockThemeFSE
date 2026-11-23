@@ -48,7 +48,11 @@ final class PIN_Site_Importer_Importer {
                 $structured_json = $structured_source->load_json( $source_dir );
 
                 if ( is_wp_error( $structured_json ) ) {
-                    return $structured_json;
+                    if ( 'json' === $source_format ) {
+                        return $structured_json;
+                    }
+
+                    $structured_json = null;
                 }
 
                 if ( null === $structured_json && 'json' === $source_format ) {
@@ -63,7 +67,11 @@ final class PIN_Site_Importer_Importer {
                 $wxr_result = $structured_source->import_wxr( $source_dir, $post_status, $import_media );
 
                 if ( is_wp_error( $wxr_result ) ) {
-                    return $wxr_result;
+                    if ( 'wxr' === $source_format ) {
+                        return $wxr_result;
+                    }
+
+                    $wxr_result = null;
                 }
 
                 if ( is_array( $wxr_result ) ) {
