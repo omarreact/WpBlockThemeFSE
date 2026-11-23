@@ -62,6 +62,13 @@ final class PIN_Site_Importer_Admin {
                         </td>
                     </tr>
                     <tr>
+                        <th scope="row"><label for="pin-source-dir"><?php esc_html_e( 'Static build folder (optional)', 'pin-site-importer' ); ?></label></th>
+                        <td>
+                            <input id="pin-source-dir" name="source_dir" type="text" class="regular-text code" placeholder="out or dist">
+                            <p class="description"><?php esc_html_e( 'Useful for Next.js/Vite/static-export repositories. Leave empty to scan all HTML files.', 'pin-site-importer' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row"><label for="pin-token"><?php esc_html_e( 'GitHub token (optional)', 'pin-site-importer' ); ?></label></th>
                         <td>
                             <input id="pin-token" name="token" type="password" class="regular-text" autocomplete="off">
@@ -134,6 +141,7 @@ final class PIN_Site_Importer_Admin {
         $repo_url = isset( $_POST['repo_url'] ) ? esc_url_raw( wp_unslash( $_POST['repo_url'] ) ) : '';
         $branch   = isset( $_POST['branch'] ) ? sanitize_text_field( wp_unslash( $_POST['branch'] ) ) : '';
         $token    = isset( $_POST['token'] ) ? sanitize_text_field( wp_unslash( $_POST['token'] ) ) : '';
+        $source_dir = isset( $_POST['source_dir'] ) ? sanitize_text_field( wp_unslash( $_POST['source_dir'] ) ) : '';
 
         $importer = new PIN_Site_Importer_Importer();
         $result   = $importer->run(
@@ -141,6 +149,7 @@ final class PIN_Site_Importer_Admin {
                 'repo_url'     => $repo_url,
                 'branch'       => $branch,
                 'token'        => $token,
+                'source_dir'   => $source_dir,
                 'post_status'  => isset( $_POST['post_status'] ) ? sanitize_key( wp_unslash( $_POST['post_status'] ) ) : 'draft',
                 'import_media' => ! empty( $_POST['import_media'] ),
                 'import_css'   => ! empty( $_POST['import_css'] ),
