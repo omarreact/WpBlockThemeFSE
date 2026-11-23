@@ -20,10 +20,12 @@ PIN Universal FSE.
 * Source folder hierarchy to WordPress parent/child page hierarchy.
 * Internal imported-page link rewriting.
 * Authenticated repository image import into Media Library.
-* Local CSS and safe inline-style preservation.
+* Local CSS, embedded critical CSS and safe inline-style preservation.
 * External/CDN stylesheet and web-font preservation.
-* CSS asset mirroring into WordPress uploads where possible.
+* Build-root-aware CSS asset rewriting and static asset/chunk/font mirroring.
 * Local classic and module JavaScript mirroring/loading.
+* Optional external/CDN JavaScript loading for trusted imports.
+* Imported styling injected into the Gutenberg/Site Editor content canvas.
 * Imported WordPress Navigation generation.
 * Preservation of navigation links extracted from source headers.
 * Optional imported root index.html front-page assignment.
@@ -56,4 +58,6 @@ bounded and validated.
 The repository CI includes PHP/JSON/package checks and an actual WordPress
 wp-env lifecycle smoke test covering theme activation, companion activation,
 Gutenberg conversion, page hierarchy, FSE template parts and navigation
-behavior.
+behavior. CI also imports a real fixture from this GitHub repository through the
+same remote GitHub API pipeline and verifies CSS, JavaScript, static assets,
+editor-canvas styles and internal-link rewriting.
