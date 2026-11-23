@@ -165,6 +165,26 @@ pin_smoke_assert(
     is_array( $area_terms ) && 'header' === $area_terms[0]->name,
     'Imported template part was not assigned to the header area.'
 );
+pin_smoke_assert(
+    str_starts_with( (string) get_post_field( 'post_name', $part_id ), 'pin-imported-header-' ),
+    'Preview template part incorrectly replaced the live header slug.'
+);
+
+delete_option( 'pin_site_importer_navigation_id' );
+$nav_method = new ReflectionMethod( $importer, 'create_navigation' );
+$nav_method->setAccessible( true );
+$preview_navigation_id = $nav_method->invoke(
+    $importer,
+    $page_map,
+    'example/site-preview',
+    false
+);
+pin_smoke_assert( ! is_wp_error( $preview_navigation_id ), 'Preview Navigation creation failed.' );
+pin_smoke_assert(
+    0 === absint( get_option( 'pin_site_importer_navigation_id' ) ),
+    'Preview Navigation incorrectly became the active live Navigation.'
+);
+wp_delete_post( (int) $preview_navigation_id, true );
 
 $navigation_id = wp_insert_post(
     array(
@@ -213,6 +233,8 @@ delete_option( 'pin_site_importer_navigation_id' );
 // Real GitHub -> WordPress end-to-end import using the repository fixture.
 $source_repo   = (string) get_option( 'pin_smoke_source_repo', '' );
 $source_branch = (string) get_option( 'pin_smoke_source_branch', '' );
+$previous_show_on_front = get_option( 'show_on_front' );
+$previous_page_on_front = get_option( 'page_on_front' );
 
 pin_smoke_assert( '' !== $source_repo && '' !== $source_branch, 'End-to-end fixture source was not configured.' );
 
@@ -221,15 +243,16 @@ $e2e = $importer->run(
         'repo_url'                => $source_repo,
         'branch'                  => $source_branch,
         'source_dir'              => 'tests/fixtures/static-site',
-        'post_status'             => 'draft',
+        'post_status'             => 'publish',
         'import_media'            => true,
         'import_css'              => true,
         'import_scripts'          => true,
         'mirror_assets'           => true,
         'import_external_scripts' => false,
-        'set_home'                => false,
+        'set_home'                => true,
         'create_navigation'       => true,
         'import_template_parts'   => true,
+        'apply_global'            => true,
     )
 );
 
@@ -282,6 +305,13 @@ pin_smoke_assert( ! empty( $about_ids ) && ! empty( $team_ids ) && ! empty( $hom
 $about_id = (int) $about_ids[0];
 $team_id  = (int) $team_ids[0];
 $home_id  = (int) $home_ids[0];
+
+pin_smoke_assert( ! empty( $e2e['global_applied'] ), 'Published fixture was not marked as globally applied.' );
+pin_smoke_assert(
+    (int) get_option( 'page_on_front' ) === $home_id
+        && 'page' === get_option( 'show_on_front' ),
+    'Globally applied fixture did not set the imported root page as WordPress homepage.'
+);
 
 pin_smoke_assert(
     (int) get_post_field( 'post_parent', $team_id ) === $about_id,
@@ -368,6 +398,8 @@ if ( ! empty( $e2e['navigation_id'] ) ) {
     wp_delete_post( (int) $e2e['navigation_id'], true );
 }
 delete_option( 'pin_site_importer_navigation_id' );
+update_option( 'show_on_front', $previous_show_on_front );
+update_option( 'page_on_front', $previous_page_on_front );
 delete_option( 'pin_smoke_source_repo' );
 delete_option( 'pin_smoke_source_branch' );
 
