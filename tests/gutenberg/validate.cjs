@@ -1,6 +1,7 @@
 /* Validate generated content against the same registered core save functions as WordPress. */
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { JSDOM } = require('jsdom');
 
 async function main() {
@@ -27,7 +28,7 @@ async function main() {
             if (!response.ok) throw new Error(`WordPress dependency ${dependency.handle}: ${response.status}`);
             source = await response.text();
         }
-        window.eval(source);
+        vm.runInContext(source, dom.getInternalVMContext(), { filename: dependency.handle + '.js' });
     }
     window.wp.blockLibrary.registerCoreBlocks();
     let count = 0;
