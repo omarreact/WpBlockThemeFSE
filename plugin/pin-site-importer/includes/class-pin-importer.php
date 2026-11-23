@@ -167,21 +167,36 @@ final class PIN_Site_Importer_Importer {
                 continue;
             }
 
-            if ( $import_css && ! empty( $converted['stylesheets'] ) ) {
-                $css = $this->collect_css(
-                    $github,
-                    $repository,
-                    $path,
-                    $converted['stylesheets'],
-                    $assets
-                );
+            if ( $import_css ) {
+                $page_css = trim( (string) ( $converted['inline_css'] ?? '' ) );
 
-                if ( is_wp_error( $css ) ) {
-                    $result['warnings'][] = $css->get_error_message();
-                } elseif ( '' !== $css['content'] ) {
-                    update_post_meta( $post_id, '_pin_import_css', $css['content'] );
-                    $result['css_files'] += $css['count'];
+                if ( ! empty( $converted['stylesheets'] ) ) {
+                    $css = $this->collect_css(
+                        $github,
+                        $repository,
+                        $path,
+                        $converted['stylesheets'],
+                        $assets
+                    );
+
+                    if ( is_wp_error( $css ) ) {
+                        $result['warnings'][] = $css->get_error_message();
+                    } else {
+                        $result['css_files'] += $css['count'];
+
+                        if ( '' !== $css['content'] ) {
+                            $page_css = trim( $page_css . "\n" . $css['content'] );
+                        }
+                    }
                 }
+
+                if ( '' !== $page_css ) {
+                    update_post_meta( $post_id, '_pin_import_css', $page_css );
+                } else {
+                    delete_post_meta( $post_id, '_pin_import_css' );
+                }
+            } else {
+                delete_post_meta( $post_id, '_pin_import_css' );
             }
 
             if ( $import_scripts && ! empty( $converted['scripts'] ) ) {
