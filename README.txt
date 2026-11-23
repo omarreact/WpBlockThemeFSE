@@ -1,34 +1,56 @@
 PIN Universal FSE
-Version: 0.1.0 (starter)
+Version: 0.2.0
 Source: https://github.com/omarreact/WpBlockThemeFSE
 WordPress 6.6+ | PHP 8.1+
 
-A standalone, content-neutral WordPress Full Site Editing (FSE) block theme.
-This repository contains ONLY the 13 theme files in the approved structure.
+A content-neutral WordPress Full Site Editing (FSE) block theme packaged in the
+same repository as its PIN Site Importer companion plugin.
 
 Install
 1. Download the repository ZIP from GitHub.
 2. In WordPress, go to Appearance > Themes > Add New > Upload Theme.
-3. Upload the ZIP, install and activate.
-4. Edit the site under Appearance > Editor.
-5. Edit page content under Pages > Edit.
-6. Edit global typography, colors, and spacing under Appearance > Editor > Styles.
+3. Upload the ZIP, install, and activate the theme.
+4. On the first administrator request after activation, the theme attempts to
+   copy the bundled PIN Site Importer into wp-content/plugins and activate it.
+5. If the host blocks that filesystem write, WordPress shows an administrator
+   notice with a retry action instead of silently failing.
+6. Edit the site under Appearance > Editor.
+7. Open Tools > PIN Site Importer to verify the companion plugin is active.
 
-Scope
-- Editable Gutenberg header, footer, templates and pattern.
+Architecture
+- Theme: templates, template parts, patterns, global styles, and presentation.
+- Companion plugin: GitHub/HTML import, conversion, media, pages, navigation,
+  and other migration behavior.
+- Both live in this repository and ship together with the theme package.
+- The companion remains a normal WordPress plugin after installation, so its
+  functionality is not tied to keeping this theme active.
+
+Current companion-plugin phase
+- Bundled plugin source: implemented.
+- Theme activation install/activate bootstrap: implemented.
+- Capability checks, nonce-protected retry, and visible failure handling:
+  implemented.
+- GitHub repository crawler/importer: not implemented yet.
+- HTML/CSS to native Gutenberg block conversion: not implemented yet.
+- Media, page, and navigation migration engines: not implemented yet.
+
+FSE scope
+- Editable Gutenberg header, footer, templates, and pattern.
 - Standard WordPress Site Editor and global design settings.
 - No Meta Grey Label content, branding, or site-specific CSS.
-- No importer plugin bundled with this theme.
-- No HTML-to-WordPress conversion or GitHub import functionality is part of
-  this theme. An importer would require a separate, optional plugin.
 - Gutenberg is a block canvas, not an arbitrary free-positioning design tool.
-- WordPress 7.1+ may expose additional responsive block-level controls;
-  the supported editor controls depend on the installed WordPress version.
+
+Important WordPress behavior
+WordPress core does not install an unrelated plugin as part of the theme-upload
+step itself. This package therefore performs the companion installation on the
+first eligible administrator request after theme activation. On normal writable
+WordPress hosting this produces the intended single theme-install workflow.
 
 Staging
-The screenshot is a conceptual illustration, not an actual site capture.
-PHP syntax and static structure can be checked before installation, but this
-theme must be tested in a real WordPress staging Site Editor before production.
+Automated repository validation checks PHP syntax, JSON validity, and required
+package files. A real WordPress staging installation is still required before
+production release to validate filesystem permissions, plugin activation, and
+Site Editor behavior.
 
-No WordPress production site, domains or other GitHub repositories are deployed
-or modified by publishing this source.
+No production WordPress site, domain, or other repository is changed merely by
+publishing this source.
