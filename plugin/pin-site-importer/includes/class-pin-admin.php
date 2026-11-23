@@ -91,6 +91,7 @@ final class PIN_Site_Importer_Admin {
                             <label><input type="checkbox" name="import_media" value="1" checked> <?php esc_html_e( 'Import repository images into Media Library', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="import_css" value="1" checked> <?php esc_html_e( 'Preserve referenced repository CSS on imported pages', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="import_scripts" value="1" checked> <?php esc_html_e( 'Mirror and load repository JavaScript referenced by imported pages', 'pin-site-importer' ); ?></label><br>
+                            <label><input type="checkbox" name="mirror_assets" value="1" checked> <?php esc_html_e( 'Mirror safe static build assets/chunks/fonts into WordPress uploads', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="set_home" value="1"> <?php esc_html_e( 'Set root index.html as the WordPress homepage', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="create_navigation" value="1" checked> <?php esc_html_e( 'Create/update WordPress Navigation from imported pages', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="import_template_parts" value="1" checked> <?php esc_html_e( 'Import source header/footer as editable FSE template parts', 'pin-site-importer' ); ?></label>
@@ -157,6 +158,7 @@ final class PIN_Site_Importer_Admin {
                 'import_media' => ! empty( $_POST['import_media'] ),
                 'import_css'   => ! empty( $_POST['import_css'] ),
                 'import_scripts' => ! empty( $_POST['import_scripts'] ),
+                'mirror_assets' => ! empty( $_POST['mirror_assets'] ),
                 'set_home'     => ! empty( $_POST['set_home'] ),
                 'create_navigation' => ! empty( $_POST['create_navigation'] ),
                 'import_template_parts' => ! empty( $_POST['import_template_parts'] ),
@@ -368,12 +370,13 @@ final class PIN_Site_Importer_Admin {
                 <?php
                 echo esc_html(
                     sprintf(
-                        /* translators: 1: imported page count, 2: failed page count, 3: media count, 4: script count. */
-                        __( '%1$d pages imported, %2$d failed, %3$d media files added; %4$d scripts mirrored.', 'pin-site-importer' ),
+                        /* translators: 1: imported page count, 2: failed page count, 3: media count, 4: script count, 5: static asset count. */
+                        __( '%1$d pages imported, %2$d failed, %3$d media files added; %4$d scripts and %5$d static assets mirrored.', 'pin-site-importer' ),
                         (int) ( $data['pages_imported'] ?? 0 ),
                         (int) ( $data['pages_failed'] ?? 0 ),
                         (int) ( $data['media_imported'] ?? 0 ),
-                        (int) ( $data['scripts_mirrored'] ?? 0 )
+                        (int) ( $data['scripts_mirrored'] ?? 0 ),
+                        (int) ( $data['assets_mirrored'] ?? 0 )
                     )
                 );
                 ?>
