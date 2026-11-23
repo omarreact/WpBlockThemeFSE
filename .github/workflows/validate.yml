@@ -32,4 +32,13 @@ jobs:
           test -f theme.json
           test -f templates/index.html
           test -f plugin/pin-site-importer/pin-site-importer.php
+          test -f plugin/pin-site-importer/includes/class-pin-github-client.php
+          test -f plugin/pin-site-importer/includes/class-pin-html-to-blocks.php
+          test -f plugin/pin-site-importer/includes/class-pin-importer.php
+          test -f plugin/pin-site-importer/includes/class-pin-admin.php
           test -f inc/companion-plugin-installer.php
+
+      - name: Verify release versions
+        run: |
+          grep -q "Version: 0.2.0" style.css
+          grep -q "Version: 0.2.0" plugin/pin-site-importer/pin-site-importer.php
