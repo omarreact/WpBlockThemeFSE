@@ -3,15 +3,16 @@ Version: 0.2.0
 Source: https://github.com/omarreact/WpBlockThemeFSE
 WordPress 6.6+ | PHP 8.1+
 
-PIN Universal FSE is a WordPress Full Site Editing block theme packaged in the
-same repository and distribution as the PIN Site Importer companion plugin.
+PIN Universal FSE is a content-neutral WordPress Full Site Editing block theme
+packaged in the same repository and distribution as the PIN Site Importer
+companion plugin.
 
 INSTALL
 1. Download this repository as a ZIP.
 2. WordPress: Appearance > Themes > Add New > Upload Theme.
 3. Install and activate PIN Universal FSE.
-4. On the first eligible administrator request, the theme installs/updates the
-   bundled PIN Site Importer under wp-content/plugins and activates it.
+4. On the first eligible administrator request, the theme installs or updates
+   the bundled PIN Site Importer under wp-content/plugins and activates it.
 5. If hosting permissions block the filesystem write, an administrator notice
    provides a nonce-protected retry action.
 6. Open Tools > PIN Site Importer.
@@ -20,45 +21,79 @@ THEME RESPONSIBILITIES
 - Native Full Site Editing templates and template parts.
 - Gutenberg-editable header, footer, navigation and page content.
 - theme.json global typography, colors, spacing, dimensions and design tools.
-- Content-neutral presentation; no Meta Grey Label/project-specific branding.
+- Content-neutral presentation with no project-specific website branding.
 
 COMPANION PLUGIN RESPONSIBILITIES
-- GitHub repository inspection using WordPress safe HTTP APIs.
-- Public repository import and optional per-request GitHub token for private
-  repository access. Tokens are not persisted.
-- Optional branch selection.
-- Optional static build folder selection, e.g. out/ or dist/.
-- Static HTML page discovery with a bounded per-run safety limit.
-- HTML to native Gutenberg core-block conversion.
+- GitHub repository inspection through WordPress safe HTTP APIs.
+- Public repositories plus optional per-request GitHub token for private repos.
+  Tokens are never stored.
+- Optional branch and static build-folder selection, e.g. out/ or dist/.
+- Technology detection and bounded static HTML discovery.
+- HTML to native Gutenberg core-block conversion for headings, paragraphs,
+  images, lists, quotes, tables, buttons, structural groups and navigation.
+- Source header/footer extraction into database-backed editable FSE Template
+  Parts instead of duplicating them inside every page.
+- Existing user-managed FSE header/footer protection: only importer-owned parts
+  for the same repository are updated on re-import.
+- Source folder hierarchy preservation as WordPress parent/child pages.
 - Imported-page upsert keyed by repository + branch + source path.
-- Internal relative-link rewriting to imported WordPress page permalinks.
-- Repository image sideload into the WordPress Media Library.
-- Referenced repository CSS collection and per-page loading.
-- CSS relative asset URL rewriting to raw GitHub assets.
-- WordPress wp_navigation generation from imported pages.
-- Automatic use of the imported navigation by an unconfigured PIN Universal
-  FSE Navigation block.
+- Internal link rewriting to imported WordPress page permalinks.
+- Authenticated repository image import into the WordPress Media Library,
+  including private-repository assets.
+- Local CSS preservation, safe inline-style preservation and CDN/external
+  stylesheet loading.
+- CSS font/image asset mirroring into WordPress uploads where possible.
+- Local classic/module JavaScript mirroring and frontend loading.
+- WordPress Navigation generation from imported pages while preserving
+  source-provided Navigation blocks.
 - Optional root index.html assignment as the WordPress front page.
-- Import history and warning/error reporting.
+- Import history, warnings and explicit error reporting.
+- Version-aware bundled plugin synchronization when the theme is updated.
 
 FRAMEWORK BEHAVIOR
-The importer can consume static HTML output from any stack. For Next.js, React,
-Vite, Angular or similar source repositories, select an existing static output
-folder such as out/ or dist/. Dynamic application source is not falsely treated
-as a rendered website; it must be exported/built to HTML first.
+The importer consumes rendered/static HTML. Plain static sites can be imported
+directly. Next.js, React, Vite, Angular and similar repositories must already
+contain a static build/export folder such as out/ or dist/. Dynamic server
+application source is not falsely treated as a rendered website.
+
+This distinction is deliberate: converting arbitrary framework source code into
+a working WordPress application would require rebuilding application-specific
+backend/API/authentication behavior, which is different from importing a
+rendered website into editable WordPress blocks.
 
 SECURITY / SAFETY
-- Import actions require manage_options and WordPress nonces.
-- User-controlled requests use safe WordPress HTTP functions.
-- Repository tree/file sizes and pages per import are bounded.
-- Automatic image sideloading is limited to GitHub raw/content hosts.
+- Import actions require administrator capability checks and WordPress nonces.
+- User-controlled server-side URLs use safe WordPress HTTP requests.
+- GitHub tokens are request-only and are not persisted.
+- Repository tree/file sizes, page counts, CSS and mirrored assets are bounded.
+- Asset paths are normalized and parent-directory traversal is rejected.
 - Existing imported pages are updated instead of blindly duplicated.
-- The plugin remains a normal WordPress plugin after installation.
+- Existing user-managed FSE template parts are not overwritten.
+- The companion remains a normal WordPress plugin after installation.
 
-CURRENT VALIDATION
-GitHub Actions validates PHP syntax, JSON validity and required theme/plugin
-package files. Real WordPress staging validation is still required before
-production merge to verify filesystem permissions, plugin activation, Site
-Editor block validity, media sideloading and import behavior on an actual host.
+VALIDATION
+GitHub Actions currently performs:
+- PHP syntax validation for every PHP file.
+- JSON validation.
+- Required package/file checks.
+- Theme/plugin version consistency checks.
+- Real WordPress lifecycle smoke testing with wp-env.
+- Theme activation.
+- Bundled plugin copy/install/activation.
+- Importer class loading.
+- HTML to Gutenberg conversion.
+- Inline style, local CSS, external CSS and JavaScript reference extraction.
+- GitHub URL/path parsing.
+- WordPress parent/child page hierarchy.
+- Database-backed FSE template-part creation and taxonomy assignment.
+- Imported navigation injection and source-navigation preservation.
+
+A hosted staging test is still required before a production release because
+real hosting filesystem permissions, PHP extensions, outbound GitHub access,
+Media Library limits and server resource limits vary by provider.
+
+CURRENT DEVELOPMENT
+Development is in PR #1 on branch feat/bundled-companion-plugin. main is not
+modified by this work until the PR is explicitly approved and merged.
 
 No production site or domain is changed by this repository alone.
