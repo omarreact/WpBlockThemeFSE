@@ -119,6 +119,7 @@ jobs:
           test -f dist/pin-site-importer.zip
           unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/style.css'
           unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/plugin/pin-site-importer/pin-site-importer.php'
+          unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/bundled/pin-site-importer.zip'
           unzip -l dist/pin-site-importer.zip | grep -q 'pin-site-importer/pin-site-importer.php'
           if unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/tests/'; then
             echo "Development tests must not ship in the installable theme package."
