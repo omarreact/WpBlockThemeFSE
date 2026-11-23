@@ -34,17 +34,62 @@ final class PIN_Site_Importer_Importer {
         $apply_global_requested = ! empty( $args['apply_global'] );
         $apply_global = $apply_global_requested && 'publish' === $post_status;
         $github         = new PIN_Site_Importer_GitHub_Client( $token );
-        $repository     = $github->inspect_repository( $repo_url, $branch );
+        $repository     = null;
+        $structured_json = null;
 
-        if ( is_wp_error( $repository ) ) {
-            return $repository;
+        // Public structured repositories with an explicit branch can bypass
+        // GitHub's rate-limited metadata/tree API entirely. The importer probes
+        // the known JSON manifest filenames through raw.githubusercontent.com.
+        if (
+            '' === $token
+            && '' !== trim( $branch )
+            && in_array( $source_format, array( 'auto', 'json' ), true )
+        ) {
+            $parsed = $github->parse_repository( $repo_url );
+
+            if ( ! is_wp_error( $parsed ) ) {
+                $repository = array(
+                    'owner'                  => (string) $parsed['owner'],
+                    'repo'                   => (string) $parsed['repo'],
+                    'full_name'              => (string) $parsed['owner'] . '/' . (string) $parsed['repo'],
+                    'branch'                 => $branch,
+                    'html_files'             => array(),
+                    'css_files'              => array(),
+                    'technology'             => 'Structured JSON',
+                    'static_roots'           => array(),
+                    'recommended_source_dir' => '',
+                    'tree'                   => array(),
+                    'description'            => '',
+                );
+
+                $structured_source = new PIN_Site_Importer_Structured_Source( $github, $repository );
+                $structured_json   = $structured_source->load_json_direct( $source_dir );
+
+                if ( is_wp_error( $structured_json ) ) {
+                    if ( 'json' === $source_format ) {
+                        return $structured_json;
+                    }
+
+                    $repository       = null;
+                    $structured_json = null;
+                } elseif ( null === $structured_json ) {
+                    $repository = null;
+                }
+            }
+        }
+
+        if ( null === $repository ) {
+            $repository = $github->inspect_repository( $repo_url, $branch );
+
+            if ( is_wp_error( $repository ) ) {
+                return $repository;
+            }
         }
 
         $structured_source = new PIN_Site_Importer_Structured_Source( $github, $repository );
-        $structured_json   = null;
 
         if ( 'html' !== $source_format ) {
-            if ( in_array( $source_format, array( 'auto', 'json' ), true ) ) {
+            if ( null === $structured_json && in_array( $source_format, array( 'auto', 'json' ), true ) ) {
                 $structured_json = $structured_source->load_json( $source_dir );
 
                 if ( is_wp_error( $structured_json ) ) {
@@ -95,6 +140,7 @@ final class PIN_Site_Importer_Importer {
             $auto_source_dir = true;
         }
 
+        $api_free_structured = is_array( $structured_json ) && empty( $repository['tree'] );
         $assets = new PIN_Site_Importer_Asset_Manager( $github, $repository );
 
         if ( '' !== $source_dir && false !== strpos( $source_dir, '..' ) ) {
@@ -180,6 +226,13 @@ final class PIN_Site_Importer_Importer {
             'auto_source_dir'  => $auto_source_dir,
             'static_roots'     => (array) ( $repository['static_roots'] ?? array() ),
         );
+
+        if ( $api_free_structured && $mirror_assets ) {
+            $result['warnings'][] = __(
+                'Structured JSON was imported without GitHub API tree discovery. Referenced page CSS, scripts, images and media can still be imported, but bulk mirroring of unreferenced repository assets is skipped for this run.',
+                'pin-site-importer'
+            );
+        }
 
         if ( $auto_source_dir ) {
             $result['warnings'][] = sprintf(
@@ -491,7 +544,7 @@ final class PIN_Site_Importer_Importer {
 
         // Prioritize page/content conversion before bulk static mirroring.
         // If every page failed above, we stop before mirroring unrelated assets.
-        if ( $mirror_assets ) {
+        if ( $mirror_assets && ! $api_free_structured ) {
             $asset_mirror = $assets->mirror_tree_assets(
                 (array) $repository['tree'],
                 $source_dir
