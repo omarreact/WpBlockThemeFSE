@@ -7,7 +7,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class PIN_Site_Importer_Importer {
     private const MAX_PAGES = 75;
-    private const MAX_CSS_BYTES_PER_PAGE = 524288;
+    private const MAX_CSS_BYTES_PER_PAGE = 2097152;
 
     /**
      * @param array<string,mixed> $args
@@ -314,20 +314,20 @@ final class PIN_Site_Importer_Importer {
             $footer_content = (string) ( $converted['footer_content'] ?? '' );
 
             if ( $import_media && ! empty( $converted['images'] ) ) {
-                $media_result = $this->sideload_images( $post_id, $content, $converted['images'], $github, $repository );
+                $media_result = $this->sideload_images( $post_id, $content, $converted['images'], $github, $repository, $assets );
                 $content      = $media_result['content'];
                 $result['media_imported'] += $media_result['count'];
                 $result['warnings']        = array_merge( $result['warnings'], $media_result['warnings'] );
 
                 if ( '' !== $header_content ) {
-                    $header_media = $this->sideload_images( $post_id, $header_content, $converted['images'], $github, $repository );
+                    $header_media = $this->sideload_images( $post_id, $header_content, $converted['images'], $github, $repository, $assets );
                     $header_content = $header_media['content'];
                     $result['media_imported'] += $header_media['count'];
                     $result['warnings'] = array_merge( $result['warnings'], $header_media['warnings'] );
                 }
 
                 if ( '' !== $footer_content ) {
-                    $footer_media = $this->sideload_images( $post_id, $footer_content, $converted['images'], $github, $repository );
+                    $footer_media = $this->sideload_images( $post_id, $footer_content, $converted['images'], $github, $repository, $assets );
                     $footer_content = $footer_media['content'];
                     $result['media_imported'] += $footer_media['count'];
                     $result['warnings'] = array_merge( $result['warnings'], $footer_media['warnings'] );
@@ -884,7 +884,8 @@ final class PIN_Site_Importer_Importer {
         string $content,
         array $images,
         PIN_Site_Importer_GitHub_Client $github,
-        array $repository
+        array $repository,
+        PIN_Site_Importer_Asset_Manager $assets
     ): array {
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/file.php';
@@ -1041,7 +1042,7 @@ final class PIN_Site_Importer_Importer {
                 $repository['repo'],
                 $repository['branch'],
                 $css_path,
-                262144
+                1048576
             );
 
             if ( is_wp_error( $css ) ) {
