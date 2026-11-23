@@ -11,6 +11,7 @@ final class PIN_Site_Importer_Admin {
         add_action( 'admin_post_pin_site_importer_run', array( __CLASS__, 'handle_import' ) );
         add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_imported_css' ), 50 );
         add_action( 'enqueue_block_editor_assets', array( __CLASS__, 'enqueue_editor_css' ), 50 );
+        add_filter( 'render_block_data', array( __CLASS__, 'inject_navigation_ref' ), 10, 2 );
     }
 
     public static function menu(): void {
@@ -81,7 +82,8 @@ final class PIN_Site_Importer_Admin {
                         <td>
                             <label><input type="checkbox" name="import_media" value="1" checked> <?php esc_html_e( 'Import repository images into Media Library', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="import_css" value="1" checked> <?php esc_html_e( 'Preserve referenced repository CSS on imported pages', 'pin-site-importer' ); ?></label><br>
-                            <label><input type="checkbox" name="set_home" value="1"> <?php esc_html_e( 'Set root index.html as the WordPress homepage', 'pin-site-importer' ); ?></label>
+                            <label><input type="checkbox" name="set_home" value="1"> <?php esc_html_e( 'Set root index.html as the WordPress homepage', 'pin-site-importer' ); ?></label><br>
+                            <label><input type="checkbox" name="create_navigation" value="1" checked> <?php esc_html_e( 'Create/update WordPress Navigation from imported pages', 'pin-site-importer' ); ?></label>
                         </td>
                     </tr>
                 </table>
@@ -143,6 +145,7 @@ final class PIN_Site_Importer_Admin {
                 'import_media' => ! empty( $_POST['import_media'] ),
                 'import_css'   => ! empty( $_POST['import_css'] ),
                 'set_home'     => ! empty( $_POST['set_home'] ),
+                'create_navigation' => ! empty( $_POST['create_navigation'] ),
             )
         );
 
@@ -170,6 +173,43 @@ final class PIN_Site_Importer_Admin {
 
         wp_safe_redirect( admin_url( 'tools.php?page=pin-site-importer' ) );
         exit;
+    }
+
+    /**
+     * Use the most recently imported Navigation in the theme header when the
+     * Navigation block does not already reference a user-selected menu.
+     *
+     * @param array<string,mixed> $parsed_block
+     * @return array<string,mixed>
+     */
+    public static function inject_navigation_ref( array $parsed_block, array $source_block ): array {
+        if ( 'core/navigation' !== ( $parsed_block['blockName'] ?? '' ) ) {
+            return $parsed_block;
+        }
+
+        if ( ! empty( $parsed_block['attrs']['ref'] ) ) {
+            return $parsed_block;
+        }
+
+        $theme = wp_get_theme();
+
+        if ( 'pin-universal-fse' !== $theme->get( 'TextDomain' ) ) {
+            return $parsed_block;
+        }
+
+        $navigation_id = absint( get_option( 'pin_site_importer_navigation_id' ) );
+
+        if ( ! $navigation_id || 'wp_navigation' !== get_post_type( $navigation_id ) ) {
+            return $parsed_block;
+        }
+
+        if ( ! isset( $parsed_block['attrs'] ) || ! is_array( $parsed_block['attrs'] ) ) {
+            $parsed_block['attrs'] = array();
+        }
+
+        $parsed_block['attrs']['ref'] = $navigation_id;
+
+        return $parsed_block;
     }
 
     public static function enqueue_imported_css(): void {
