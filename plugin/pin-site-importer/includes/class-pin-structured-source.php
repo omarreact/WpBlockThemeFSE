@@ -873,6 +873,9 @@ final class PIN_Site_Importer_Structured_Source {
     }
 
     private function wrap_document( string $title, string $html ): string {
+        if ( preg_match( '/^\s*(?:<!doctype\s+html|<html(?:\s|>))/i', $html ) ) {
+            return $html;
+        }
         return '<!doctype html><html><head><meta charset="utf-8"><title>'
             . esc_html( $title ) . '</title></head><body>' . $html . '</body></html>';
     }
