@@ -332,7 +332,7 @@ final class PIN_Site_Importer_Structured_Source {
                     continue;
                 }
 
-                update_post_meta( $new_id, sanitize_key( $key ), maybe_unserialize( $value ) );
+                update_post_meta( $new_id, sanitize_key( $key ), $value );
             }
 
             foreach ( $xpath->query( 'category', $item ) ?: array() as $term_node ) {
@@ -348,7 +348,16 @@ final class PIN_Site_Importer_Structured_Source {
                 }
 
                 if ( 'category' === $domain ) {
-                    wp_set_post_categories( $new_id, array( wp_create_category( $name ) ), true );
+                    $term = term_exists( $name, 'category' );
+
+                    if ( ! $term ) {
+                        $term = wp_insert_term( $name, 'category' );
+                    }
+
+                    if ( ! is_wp_error( $term ) ) {
+                        $term_id = is_array( $term ) ? (int) $term['term_id'] : (int) $term;
+                        wp_set_post_categories( $new_id, array( $term_id ), true );
+                    }
                 } elseif ( 'post_tag' === $domain ) {
                     wp_set_post_tags( $new_id, array( $name ), true );
                 }
