@@ -141,7 +141,7 @@ final class PIN_Site_Importer_Importer {
             $content = $converted['content'];
 
             if ( $import_media && ! empty( $converted['images'] ) ) {
-                $media_result = $this->sideload_images( $post_id, $content, $converted['images'] );
+                $media_result = $this->sideload_images( $post_id, $content, $converted['images'], $github, $repository );
                 $content      = $media_result['content'];
                 $result['media_imported'] += $media_result['count'];
                 $result['warnings']        = array_merge( $result['warnings'], $media_result['warnings'] );
@@ -322,10 +322,20 @@ final class PIN_Site_Importer_Importer {
     }
 
     /**
-     * @param array<string,string> $images
+     * Import repository images into the WordPress Media Library using the
+     * authenticated GitHub client. This works for public and private repos.
+     *
+     * @param array<string,array{url:string,path:string}> $images
+     * @param array<string,mixed>                          $repository
      * @return array{content:string,count:int,warnings:string[]}
      */
-    private function sideload_images( int $post_id, string $content, array $images ): array {
+    private function sideload_images(
+        int $post_id,
+        string $content,
+        array $images,
+        PIN_Site_Importer_GitHub_Client $github,
+        array $repository
+    ): array {
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
@@ -333,16 +343,29 @@ final class PIN_Site_Importer_Importer {
         $count    = 0;
         $warnings = array();
 
-        foreach ( $images as $original => $remote_url ) {
+        foreach ( $images as $original => $descriptor ) {
+            if ( ! is_array( $descriptor ) ) {
+                continue;
+            }
+
+            $remote_url = esc_url_raw( (string) ( $descriptor['url'] ?? '' ) );
+            $repo_path  = (string) ( $descriptor['path'] ?? '' );
+
             if ( '' === $remote_url ) {
                 continue;
             }
 
-            $host = strtolower( (string) wp_parse_url( $remote_url, PHP_URL_HOST ) );
-
-            if ( ! in_array( $host, array( 'raw.githubusercontent.com', 'githubusercontent.com' ), true ) ) {
+            // External images stay remote. Repository-local images are imported
+            // through the authenticated Contents API below.
+            if ( '' === $repo_path ) {
                 continue;
             }
+
+            $asset_key = (string) $repository['full_name']
+                . '@'
+                . (string) $repository['branch']
+                . ':'
+                . $repo_path;
 
             $existing = get_posts(
                 array(
@@ -350,33 +373,89 @@ final class PIN_Site_Importer_Importer {
                     'post_status'    => 'inherit',
                     'posts_per_page' => 1,
                     'fields'         => 'ids',
-                    'meta_key'       => '_source_url',
-                    'meta_value'     => $remote_url,
+                    'meta_key'       => '_pin_import_repo_asset',
+                    'meta_value'     => $asset_key,
                 )
             );
 
             if ( $existing ) {
                 $attachment_url = wp_get_attachment_url( (int) $existing[0] );
             } else {
-                $attachment_id = media_sideload_image( $remote_url, $post_id, null, 'id' );
+                $binary = $github->get_file(
+                    (string) $repository['owner'],
+                    (string) $repository['repo'],
+                    (string) $repository['branch'],
+                    $repo_path,
+                    10485760
+                );
+
+                if ( is_wp_error( $binary ) ) {
+                    $warnings[] = sprintf(
+                        /* translators: 1: repository path, 2: error message. */
+                        __( 'Image import failed for %1$s: %2$s', 'pin-site-importer' ),
+                        $repo_path,
+                        $binary->get_error_message()
+                    );
+                    continue;
+                }
+
+                $filename = sanitize_file_name( basename( $repo_path ) );
+                $tmp      = wp_tempnam( $filename );
+
+                if ( ! $tmp ) {
+                    $warnings[] = sprintf(
+                        /* translators: %s: repository path. */
+                        __( 'Could not create a temporary file for %s.', 'pin-site-importer' ),
+                        $repo_path
+                    );
+                    continue;
+                }
+
+                $written = file_put_contents( $tmp, $binary, LOCK_EX ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+
+                if ( false === $written || $written !== strlen( $binary ) ) {
+                    @unlink( $tmp ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+                    $warnings[] = sprintf(
+                        /* translators: %s: repository path. */
+                        __( 'Could not write temporary image data for %s.', 'pin-site-importer' ),
+                        $repo_path
+                    );
+                    continue;
+                }
+
+                $attachment_id = media_handle_sideload(
+                    array(
+                        'name'     => $filename,
+                        'tmp_name' => $tmp,
+                    ),
+                    $post_id
+                );
 
                 if ( is_wp_error( $attachment_id ) ) {
+                    @unlink( $tmp ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
                     $warnings[] = sprintf(
-                        /* translators: 1: image URL, 2: error message. */
-                        __( 'Image import failed for %1$s: %2$s', 'pin-site-importer' ),
-                        $remote_url,
+                        /* translators: 1: repository path, 2: error message. */
+                        __( 'Media Library import failed for %1$s: %2$s', 'pin-site-importer' ),
+                        $repo_path,
                         $attachment_id->get_error_message()
                     );
                     continue;
                 }
 
+                update_post_meta( (int) $attachment_id, '_pin_import_repo_asset', $asset_key );
+                update_post_meta( (int) $attachment_id, '_source_url', $remote_url );
                 $attachment_url = wp_get_attachment_url( (int) $attachment_id );
                 ++$count;
             }
 
             if ( $attachment_url ) {
                 $content = str_replace(
-                    array( esc_url( $remote_url ), $remote_url ),
+                    array(
+                        esc_url( $remote_url ),
+                        $remote_url,
+                        esc_attr( $original ),
+                        $original,
+                    ),
                     esc_url( $attachment_url ),
                     $content
                 );
