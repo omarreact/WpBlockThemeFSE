@@ -452,24 +452,6 @@ final class PIN_Site_Importer_Importer {
             $result['page_ids'][] = $post_id;
         }
 
-        // Prioritize page/content conversion before bulk static mirroring.
-        // This prevents large asset trees from consuming remote request budget
-        // before the actual WordPress pages have been imported.
-        if ( $mirror_assets ) {
-            $asset_mirror = $assets->mirror_tree_assets(
-                (array) $repository['tree'],
-                $source_dir
-            );
-            $result['assets_mirrored'] = (int) $asset_mirror['count'];
-
-            if ( ! empty( $asset_mirror['warnings'] ) ) {
-                $result['warnings'] = array_merge(
-                    $result['warnings'],
-                    (array) $asset_mirror['warnings']
-                );
-            }
-        }
-
         if ( 0 === (int) $result['pages_imported'] && (int) $result['pages_failed'] > 0 ) {
             $first_warning = '';
 
@@ -505,6 +487,23 @@ final class PIN_Site_Importer_Importer {
                 $message,
                 $result
             );
+        }
+
+        // Prioritize page/content conversion before bulk static mirroring.
+        // If every page failed above, we stop before mirroring unrelated assets.
+        if ( $mirror_assets ) {
+            $asset_mirror = $assets->mirror_tree_assets(
+                (array) $repository['tree'],
+                $source_dir
+            );
+            $result['assets_mirrored'] = (int) $asset_mirror['count'];
+
+            if ( ! empty( $asset_mirror['warnings'] ) ) {
+                $result['warnings'] = array_merge(
+                    $result['warnings'],
+                    (array) $asset_mirror['warnings']
+                );
+            }
         }
 
         if ( is_array( $structured_json ) && $import_template_parts ) {
