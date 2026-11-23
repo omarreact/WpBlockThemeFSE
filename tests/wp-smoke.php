@@ -265,6 +265,24 @@ $previous_page_on_front = get_option( 'page_on_front' );
 
 pin_smoke_assert( '' !== $source_repo && '' !== $source_branch, 'End-to-end fixture source was not configured.' );
 
+// Regression: public file bodies must work without a GitHub token so large
+// imports do not consume one core API request per page/asset.
+$public_repo = ( new PIN_Site_Importer_GitHub_Client() )->parse_repository( $source_repo );
+pin_smoke_assert( ! is_wp_error( $public_repo ), 'Public raw-file fixture repository could not be parsed.' );
+$public_raw = ( new PIN_Site_Importer_GitHub_Client() )->get_file(
+    (string) $public_repo['owner'],
+    (string) $public_repo['repo'],
+    $source_branch,
+    'tests/fixtures/static-site/index.html',
+    1048576
+);
+pin_smoke_assert(
+    ! is_wp_error( $public_raw ) && str_contains( $public_raw, 'Fixture Home' ),
+    is_wp_error( $public_raw )
+        ? 'Tokenless public raw-file read failed: ' . $public_raw->get_error_message()
+        : 'Tokenless public raw-file read returned unexpected content.'
+);
+
 $e2e = $importer->run(
     array(
         'repo_url'                => $source_repo,
