@@ -9,6 +9,7 @@ final class PIN_Site_Importer_Admin {
     public static function register(): void {
         add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
         add_action( 'admin_post_pin_site_importer_run', array( __CLASS__, 'handle_import' ) );
+        add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_global_imported_assets' ), 40 );
         add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_imported_css' ), 50 );
         add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_imported_scripts' ), 60 );
         add_filter( 'block_editor_settings_all', array( __CLASS__, 'filter_editor_settings' ), 20, 2 );
@@ -253,27 +254,60 @@ final class PIN_Site_Importer_Admin {
         wp_add_inline_style( 'pin-site-importer-page', $css );
     }
 
+    public static function enqueue_global_imported_assets(): void {
+        $post_id = self::find_imported_global_template_part();
+
+        if ( ! $post_id ) {
+            return;
+        }
+
+        self::enqueue_external_styles_for_post( $post_id, 'global' );
+
+        $css = trim( (string) get_post_meta( $post_id, '_pin_import_css', true ) );
+
+        if ( '' !== $css ) {
+            wp_register_style(
+                'pin-site-importer-global',
+                false,
+                array(),
+                PIN_SITE_IMPORTER_VERSION
+            );
+            wp_enqueue_style( 'pin-site-importer-global' );
+            wp_add_inline_style( 'pin-site-importer-global', $css );
+        }
+
+        self::enqueue_scripts_for_post( $post_id );
+    }
+
     public static function enqueue_imported_scripts(): void {
         if ( ! is_singular( 'page' ) ) {
             return;
         }
 
-        $post_id = get_queried_object_id();
+        self::enqueue_scripts_for_post( get_queried_object_id() );
+    }
+
+    private static function enqueue_scripts_for_post( int $post_id ): void {
         $scripts = get_post_meta( $post_id, '_pin_import_scripts', true );
 
         if ( ! is_array( $scripts ) ) {
             $scripts = array();
         }
 
-        foreach ( $scripts as $index => $script ) {
+        foreach ( $scripts as $script ) {
             if ( ! is_array( $script ) || empty( $script['url'] ) ) {
                 continue;
             }
 
-            $handle   = 'pin-imported-' . $post_id . '-' . absint( $index );
             $url      = esc_url_raw( (string) $script['url'] );
             $type     = (string) ( $script['type'] ?? 'classic' );
             $strategy = (string) ( $script['strategy'] ?? '' );
+
+            if ( '' === $url ) {
+                continue;
+            }
+
+            $handle = 'pin-imported-script-' . substr( md5( $type . '|' . $url ), 0, 12 );
 
             if ( 'module' === $type && function_exists( 'wp_enqueue_script_module' ) ) {
                 wp_enqueue_script_module( $handle, $url, array(), null );
@@ -295,7 +329,7 @@ final class PIN_Site_Importer_Admin {
             return;
         }
 
-        foreach ( array_slice( $external_scripts, 0, 16 ) as $index => $script ) {
+        foreach ( array_slice( $external_scripts, 0, 16 ) as $script ) {
             if ( ! is_array( $script ) || empty( $script['url'] ) ) {
                 continue;
             }
@@ -306,9 +340,9 @@ final class PIN_Site_Importer_Admin {
                 continue;
             }
 
-            $handle   = 'pin-imported-external-' . $post_id . '-' . absint( $index );
             $type     = (string) ( $script['type'] ?? 'classic' );
             $strategy = (string) ( $script['strategy'] ?? '' );
+            $handle   = 'pin-imported-script-' . substr( md5( $type . '|' . $url ), 0, 12 );
 
             if ( 'module' === $type && function_exists( 'wp_enqueue_script_module' ) ) {
                 wp_enqueue_script_module( $handle, $url, array(), null );
@@ -391,12 +425,49 @@ final class PIN_Site_Importer_Admin {
             }
 
             wp_enqueue_style(
-                'pin-imported-' . sanitize_key( $context ) . '-' . $post_id . '-' . absint( $index ),
+                'pin-imported-style-' . substr( md5( $url ), 0, 12 ),
                 $url,
                 array(),
                 null
             );
         }
+    }
+
+    private static function find_imported_global_template_part(): int {
+        if ( ! post_type_exists( 'wp_template_part' ) ) {
+            return 0;
+        }
+
+        foreach ( array( 'header', 'footer' ) as $area ) {
+            $posts = get_posts(
+                array(
+                    'post_type'      => 'wp_template_part',
+                    'post_status'    => 'publish',
+                    'posts_per_page' => 1,
+                    'fields'         => 'ids',
+                    'name'           => $area,
+                    'meta_query'     => array(
+                        array(
+                            'key'     => '_pin_import_source_repo',
+                            'compare' => 'EXISTS',
+                        ),
+                    ),
+                    'tax_query'      => array(
+                        array(
+                            'taxonomy' => 'wp_theme',
+                            'field'    => 'name',
+                            'terms'    => get_stylesheet(),
+                        ),
+                    ),
+                )
+            );
+
+            if ( $posts ) {
+                return (int) $posts[0];
+            }
+        }
+
+        return 0;
     }
 
     /**
