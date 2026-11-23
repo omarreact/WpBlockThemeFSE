@@ -36,6 +36,13 @@ final class PIN_Site_Importer_Importer {
             return $repository;
         }
 
+        $auto_source_dir = false;
+
+        if ( '' === $source_dir && ! empty( $repository['recommended_source_dir'] ) ) {
+            $source_dir      = (string) $repository['recommended_source_dir'];
+            $auto_source_dir = true;
+        }
+
         $assets = new PIN_Site_Importer_Asset_Manager( $github, $repository );
 
         if ( '' !== $source_dir ) {
@@ -103,7 +110,17 @@ final class PIN_Site_Importer_Importer {
             'navigation_id'    => 0,
             'template_parts'   => array(),
             'global_applied'   => $apply_global,
+            'auto_source_dir'  => $auto_source_dir,
+            'static_roots'     => (array) ( $repository['static_roots'] ?? array() ),
         );
+
+        if ( $auto_source_dir ) {
+            $result['warnings'][] = sprintf(
+                /* translators: %s: detected static build directory. */
+                __( 'Automatically selected the detected static build folder: %s.', 'pin-site-importer' ),
+                $source_dir
+            );
+        }
 
         if ( $apply_global_requested && ! $apply_global ) {
             $result['warnings'][] = __(
