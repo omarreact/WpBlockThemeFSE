@@ -126,10 +126,12 @@ final class PIN_Site_Importer_Importer {
         }
 
         $template_part_payload = array(
-            'header'       => '',
-            'footer'       => '',
-            'css'          => '',
-            'external_css' => array(),
+            'header'           => '',
+            'footer'           => '',
+            'css'              => '',
+            'external_css'     => array(),
+            'scripts'          => array(),
+            'external_scripts' => array(),
         );
 
         foreach ( $html_files as $path ) {
@@ -279,12 +281,16 @@ final class PIN_Site_Importer_Importer {
                 $external_css = array();
             }
 
+            $page_scripts          = array();
+            $page_external_scripts = array();
+
             if ( $import_scripts && ! empty( $converted['scripts'] ) ) {
                 $scripts = $this->mirror_scripts( $assets, $converted['scripts'] );
 
                 if ( ! empty( $scripts['items'] ) ) {
-                    update_post_meta( $post_id, '_pin_import_scripts', $scripts['items'] );
-                    $result['scripts_mirrored'] += count( $scripts['items'] );
+                    $page_scripts = $scripts['items'];
+                    update_post_meta( $post_id, '_pin_import_scripts', $page_scripts );
+                    $result['scripts_mirrored'] += count( $page_scripts );
                 } else {
                     delete_post_meta( $post_id, '_pin_import_scripts' );
                 }
@@ -319,7 +325,8 @@ final class PIN_Site_Importer_Importer {
                     );
                 }
 
-                update_post_meta( $post_id, '_pin_import_external_scripts', $external_scripts );
+                $page_external_scripts = $external_scripts;
+                update_post_meta( $post_id, '_pin_import_external_scripts', $page_external_scripts );
             } else {
                 delete_post_meta( $post_id, '_pin_import_external_scripts' );
             }
@@ -327,8 +334,10 @@ final class PIN_Site_Importer_Importer {
             if ( $path === $preferred_template_source ) {
                 $template_part_payload['header'] = $header_content;
                 $template_part_payload['footer'] = $footer_content;
-                $template_part_payload['css']          = $page_css;
-                $template_part_payload['external_css'] = $external_css;
+                $template_part_payload['css']              = $page_css;
+                $template_part_payload['external_css']     = $external_css;
+                $template_part_payload['scripts']          = $page_scripts;
+                $template_part_payload['external_scripts'] = $page_external_scripts;
             }
 
             update_post_meta( $post_id, '_pin_import_source_repo', $repository['full_name'] );
@@ -367,6 +376,20 @@ final class PIN_Site_Importer_Importer {
 
                 if ( ! empty( $template_part_payload['external_css'] ) ) {
                     update_post_meta( $part_id, '_pin_import_external_css', (array) $template_part_payload['external_css'] );
+                }
+
+                if ( 'header' === $area ) {
+                    if ( ! empty( $template_part_payload['scripts'] ) ) {
+                        update_post_meta( $part_id, '_pin_import_scripts', (array) $template_part_payload['scripts'] );
+                    } else {
+                        delete_post_meta( $part_id, '_pin_import_scripts' );
+                    }
+
+                    if ( ! empty( $template_part_payload['external_scripts'] ) ) {
+                        update_post_meta( $part_id, '_pin_import_external_scripts', (array) $template_part_payload['external_scripts'] );
+                    } else {
+                        delete_post_meta( $part_id, '_pin_import_external_scripts' );
+                    }
                 }
 
                 $result['template_parts'][ $area ] = (int) $part_id;
