@@ -83,6 +83,21 @@ final class PIN_Site_Importer_GitHub_Client {
             return $repository;
         }
 
+        $cache_key = '';
+
+        if ( ! $this->is_authenticated() ) {
+            $cache_key = 'pin_site_import_repo_' . md5(
+                strtolower( $repository['owner'] . '/' . $repository['repo'] )
+                . '|'
+                . trim( $requested_branch )
+            );
+            $cached = get_transient( $cache_key );
+
+            if ( is_array( $cached ) && ! empty( $cached['tree'] ) ) {
+                return $cached;
+            }
+        }
+
         $metadata = $this->api_get(
             sprintf(
                 'https://api.github.com/repos/%s/%s',
@@ -120,7 +135,7 @@ final class PIN_Site_Importer_GitHub_Client {
         $html_files   = $this->filter_paths( $tree, array( 'html', 'htm' ) );
         $static_roots = $this->detect_static_roots( $html_files );
 
-        return array(
+        $result = array(
             'owner'                  => $repository['owner'],
             'repo'                   => $repository['repo'],
             'full_name'              => $repository['owner'] . '/' . $repository['repo'],
@@ -133,6 +148,12 @@ final class PIN_Site_Importer_GitHub_Client {
             'tree'                   => $tree,
             'description'            => sanitize_text_field( (string) ( $metadata['description'] ?? '' ) ),
         );
+
+        if ( '' !== $cache_key ) {
+            set_transient( $cache_key, $result, 5 * MINUTE_IN_SECONDS );
+        }
+
+        return $result;
     }
 
     /**
@@ -553,6 +574,32 @@ final class PIN_Site_Importer_GitHub_Client {
             $message = is_array( $json ) && ! empty( $json['message'] )
                 ? sanitize_text_field( (string) $json['message'] )
                 : __( 'GitHub API request failed.', 'pin-site-importer' );
+
+            $remaining = wp_remote_retrieve_header( $response, 'x-ratelimit-remaining' );
+            $reset     = wp_remote_retrieve_header( $response, 'x-ratelimit-reset' );
+
+            if (
+                in_array( $status, array( 403, 429 ), true )
+                && ( '0' === (string) $remaining || false !== stripos( $message, 'rate limit' ) )
+            ) {
+                $reset_text = '';
+
+                if ( is_numeric( $reset ) && (int) $reset > time() ) {
+                    $reset_text = sprintf(
+                        /* translators: %s: UTC reset time. */
+                        __( ' GitHub reports the limit resets around %s UTC.', 'pin-site-importer' ),
+                        gmdate( 'H:i:s', (int) $reset )
+                    );
+                }
+
+                return new WP_Error(
+                    'pin_github_rate_limited',
+                    __(
+                        'GitHub API metadata access is rate-limited for this server IP. Public file downloads no longer use the API, but repository metadata/tree discovery still needs a few API requests. Retry with a GitHub token for an immediate higher quota.',
+                        'pin-site-importer'
+                    ) . $reset_text
+                );
+            }
 
             return new WP_Error(
                 'pin_github_api_error',
