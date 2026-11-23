@@ -13,6 +13,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
     private string $repo;
     private string $branch;
     private string $source_path;
+    private string $source_root;
 
     /**
      * @param array<string,int> $page_map
@@ -23,7 +24,8 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         string $owner,
         string $repo,
         string $branch,
-        string $source_path
+        string $source_path,
+        string $source_root = ''
     ) {
         $this->github      = $github;
         $this->page_map    = $page_map;
@@ -31,6 +33,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         $this->repo        = $repo;
         $this->branch      = $branch;
         $this->source_path = $source_path;
+        $this->source_root = trim( str_replace( '\\', '/', $source_root ), '/' );
     }
 
     /**
@@ -403,7 +406,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             $query = '?' . sanitize_text_field( $query_part );
         }
 
-        $path = $this->github->resolve_path( $this->source_path, $href );
+        $path = $this->resolve_site_path( $href );
 
         if ( isset( $this->page_map[ $path ] ) ) {
             return get_permalink( $this->page_map[ $path ] ) . $query . $anchor;
@@ -437,7 +440,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
                 continue;
             }
 
-            $path = $this->github->resolve_path( $this->source_path, $href );
+            $path = $this->resolve_site_path( $href );
 
             if ( 'css' === strtolower( pathinfo( $path, PATHINFO_EXTENSION ) ) ) {
                 $stylesheets[] = $path;
@@ -480,7 +483,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             return '';
         }
 
-        $path = $this->github->resolve_path( $this->source_path, $src );
+        $path = $this->resolve_site_path( $src );
 
         return $this->github->raw_url(
             $this->owner,
@@ -488,6 +491,22 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             $this->branch,
             $path
         );
+    }
+
+    private function resolve_site_path( string $reference ): string {
+        $clean = preg_replace( '/[?#].*$/', '', trim( $reference ) );
+
+        if ( str_starts_with( $clean, '/' ) ) {
+            $relative = ltrim( $clean, '/' );
+
+            if ( '' !== $this->source_root ) {
+                return trailingslashit( $this->source_root ) . $relative;
+            }
+
+            return $relative;
+        }
+
+        return $this->github->resolve_path( $this->source_path, $clean );
     }
 
     private function class_attribute( DOMElement $node ): string {
