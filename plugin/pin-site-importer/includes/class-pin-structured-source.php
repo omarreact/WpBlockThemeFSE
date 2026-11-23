@@ -192,7 +192,7 @@ final class PIN_Site_Importer_Structured_Source {
     /**
      * @return array<string,mixed>|WP_Error|null
      */
-    public function import_wxr( string $source_dir = '', string $post_status = 'draft' ) {
+    public function import_wxr( string $source_dir = '', string $post_status = 'draft', bool $import_media = false ) {
         $files = $this->detect( $source_dir );
 
         if ( '' === $files['wxr'] ) {
@@ -233,15 +233,15 @@ final class PIN_Site_Importer_Structured_Source {
 
         $xpath = new DOMXPath( $document );
         $xpath->registerNamespace( 'content', 'http://purl.org/rss/1.0/modules/content/' );
-        $xpath->registerNamespace( 'wp', 'http://wordpress.org/export/1.2/' );
-        $xpath->registerNamespace( 'excerpt', 'http://wordpress.org/export/1.2/excerpt/' );
 
         $id_map     = array();
         $parent_map = array();
         $imported   = 0;
         $skipped    = 0;
         $warnings   = array();
-        $new_ids    = array();
+        $new_ids        = array();
+        $media_imported  = 0;
+        $comments_imported = 0;
 
         $items = $xpath->query( '//channel/item' );
 
@@ -264,13 +264,57 @@ final class PIN_Site_Importer_Structured_Source {
             }
 
             $type = $this->xpath_text( $xpath, 'wp:post_type', $item );
+            $old_id = absint( $this->xpath_text( $xpath, 'wp:post_id', $item ) );
 
-            if ( ! in_array( $type, array( 'post', 'page' ), true ) ) {
-                ++$skipped;
+            if ( 'attachment' === $type ) {
+                if ( ! $import_media ) {
+                    ++$skipped;
+                    continue;
+                }
+
+                $attachment_url = esc_url_raw(
+                    $this->xpath_text( $xpath, 'wp:attachment_url', $item, false ),
+                    array( 'http', 'https' )
+                );
+
+                if ( '' === $attachment_url || ! wp_http_validate_url( $attachment_url ) ) {
+                    $warnings[] = sprintf(
+                        /* translators: %d: original attachment ID. */
+                        __( 'Skipped WXR attachment %d because its source URL is not safe or valid.', 'pin-site-importer' ),
+                        $old_id
+                    );
+                    ++$skipped;
+                    continue;
+                }
+
+                $attachment_id = $this->sideload_wxr_attachment(
+                    $attachment_url,
+                    sanitize_text_field( $this->xpath_text( $xpath, 'title', $item ) )
+                );
+
+                if ( is_wp_error( $attachment_id ) ) {
+                    $warnings[] = $attachment_id->get_error_message();
+                    ++$skipped;
+                    continue;
+                }
+
+                $attachment_id = (int) $attachment_id;
+                $id_map[ $old_id ]             = $attachment_id;
+                $parent_map[ $attachment_id ]   = absint( $this->xpath_text( $xpath, 'wp:post_parent', $item ) );
+                $new_ids[]                      = $attachment_id;
+                ++$media_imported;
+                ++$imported;
                 continue;
             }
 
-            $old_id        = absint( $this->xpath_text( $xpath, 'wp:post_id', $item ) );
+            if ( ! in_array( $type, array( 'post', 'page' ), true ) ) {
+                if ( post_type_exists( $type ) && 'attachment' !== $type ) {
+                    // Registered custom post types can be preserved safely.
+                } else {
+                    ++$skipped;
+                    continue;
+                }
+            }
             $slug          = sanitize_title( $this->xpath_text( $xpath, 'wp:post_name', $item ) );
             $title         = sanitize_text_field( $this->xpath_text( $xpath, 'title', $item ) );
             $body          = $this->xpath_text( $xpath, 'content:encoded', $item, false );
@@ -294,13 +338,25 @@ final class PIN_Site_Importer_Structured_Source {
             );
 
             $postarr = array(
-                'post_type'    => $type,
-                'post_status'  => $status,
-                'post_title'   => $title,
-                'post_name'    => $slug,
-                'post_excerpt' => wp_kses_post( $excerpt ),
-                'post_content' => $this->normalize_wxr_content( $body ),
+                'post_type'      => $type,
+                'post_status'    => $status,
+                'post_title'     => $title,
+                'post_name'      => $slug,
+                'post_excerpt'   => wp_kses_post( $excerpt ),
+                'post_content'   => $this->normalize_wxr_content( $body ),
+                'menu_order'     => (int) $this->xpath_text( $xpath, 'wp:menu_order', $item ),
+                'comment_status' => in_array( $this->xpath_text( $xpath, 'wp:comment_status', $item ), array( 'open', 'closed' ), true )
+                    ? $this->xpath_text( $xpath, 'wp:comment_status', $item )
+                    : 'closed',
+                'ping_status'    => in_array( $this->xpath_text( $xpath, 'wp:ping_status', $item ), array( 'open', 'closed' ), true )
+                    ? $this->xpath_text( $xpath, 'wp:ping_status', $item )
+                    : 'closed',
             );
+
+            $post_date = sanitize_text_field( $this->xpath_text( $xpath, 'wp:post_date', $item ) );
+            if ( '' !== $post_date && false !== strtotime( $post_date ) ) {
+                $postarr['post_date'] = $post_date;
+            }
 
             if ( $existing ) {
                 $postarr['ID'] = (int) $existing[0];
@@ -324,7 +380,7 @@ final class PIN_Site_Importer_Structured_Source {
             update_post_meta( $new_id, '_pin_import_wxr_id', $old_id );
             update_post_meta( $new_id, '_pin_import_source_path', $files['wxr'] . '#post-' . $old_id );
 
-            foreach ( $xpath->query( 'wp:postmeta', $item ) ?: array() as $meta_node ) {
+            foreach ( $xpath->query( './*[local-name()="postmeta"]', $item ) ?: array() as $meta_node ) {
                 $key   = $this->xpath_text( $xpath, 'wp:meta_key', $meta_node );
                 $value = $this->xpath_text( $xpath, 'wp:meta_value', $meta_node, false );
 
@@ -363,6 +419,8 @@ final class PIN_Site_Importer_Structured_Source {
                 }
             }
 
+            $comments_imported += $this->import_wxr_comments( $xpath, $item, $new_id, $warnings );
+
             ++$imported;
         }
 
@@ -385,7 +443,8 @@ final class PIN_Site_Importer_Structured_Source {
             'pages_discovered' => $imported + $skipped,
             'pages_imported'   => $imported,
             'pages_failed'     => 0,
-            'media_imported'   => 0,
+            'media_imported'   => $media_imported,
+            'comments_imported'=> $comments_imported,
             'assets_mirrored'  => 0,
             'scripts_mirrored' => 0,
             'warnings'         => $warnings,
@@ -394,6 +453,133 @@ final class PIN_Site_Importer_Structured_Source {
             'technology'       => 'WordPress WXR',
             'global_applied'   => false,
         );
+    }
+
+    /**
+     * @param string[] $warnings
+     */
+    private function import_wxr_comments(
+        DOMXPath $xpath,
+        DOMNode $item,
+        int $post_id,
+        array &$warnings
+    ): int {
+        $comment_nodes = $xpath->query( './*[local-name()="comment"]', $item );
+
+        if ( ! $comment_nodes ) {
+            return 0;
+        }
+
+        $id_map     = array();
+        $parent_map = array();
+        $count      = 0;
+
+        foreach ( $comment_nodes as $comment_node ) {
+            $old_id = absint( $this->xpath_text( $xpath, 'wp:comment_id', $comment_node ) );
+            $approved_raw = $this->xpath_text( $xpath, 'wp:comment_approved', $comment_node );
+            $approved = in_array( $approved_raw, array( '0', '1', 'spam', 'trash' ), true )
+                ? $approved_raw
+                : '0';
+
+            $commentdata = array(
+                'comment_post_ID'      => $post_id,
+                'comment_author'       => sanitize_text_field( $this->xpath_text( $xpath, 'wp:comment_author', $comment_node ) ),
+                'comment_author_email' => sanitize_email( $this->xpath_text( $xpath, 'wp:comment_author_email', $comment_node ) ),
+                'comment_author_url'   => esc_url_raw( $this->xpath_text( $xpath, 'wp:comment_author_url', $comment_node, false ) ),
+                'comment_author_IP'    => sanitize_text_field( $this->xpath_text( $xpath, 'wp:comment_author_IP', $comment_node ) ),
+                'comment_content'      => wp_kses_post( $this->xpath_text( $xpath, 'wp:comment_content', $comment_node, false ) ),
+                'comment_approved'     => $approved,
+                'comment_type'         => sanitize_key( $this->xpath_text( $xpath, 'wp:comment_type', $comment_node ) ),
+                'comment_parent'       => 0,
+                'user_id'              => 0,
+            );
+
+            $comment_date = sanitize_text_field( $this->xpath_text( $xpath, 'wp:comment_date', $comment_node ) );
+            if ( '' !== $comment_date && false !== strtotime( $comment_date ) ) {
+                $commentdata['comment_date'] = $comment_date;
+            }
+
+            $new_id = wp_insert_comment( wp_filter_comment( $commentdata ) );
+
+            if ( ! $new_id ) {
+                $warnings[] = __( 'A WXR comment could not be imported.', 'pin-site-importer' );
+                continue;
+            }
+
+            $new_id = (int) $new_id;
+            $id_map[ $old_id ]     = $new_id;
+            $parent_map[ $new_id ] = absint( $this->xpath_text( $xpath, 'wp:comment_parent', $comment_node ) );
+
+            foreach ( $xpath->query( './*[local-name()="commentmeta"]', $comment_node ) ?: array() as $meta_node ) {
+                $key   = sanitize_key( $this->xpath_text( $xpath, 'wp:meta_key', $meta_node ) );
+                $value = $this->xpath_text( $xpath, 'wp:meta_value', $meta_node, false );
+
+                if ( '' !== $key && ! str_starts_with( $key, '_' ) ) {
+                    add_comment_meta( $new_id, $key, $value );
+                }
+            }
+
+            ++$count;
+        }
+
+        foreach ( $parent_map as $new_id => $old_parent ) {
+            if ( $old_parent && isset( $id_map[ $old_parent ] ) ) {
+                wp_update_comment(
+                    array(
+                        'comment_ID'     => $new_id,
+                        'comment_parent' => (int) $id_map[ $old_parent ],
+                    )
+                );
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @return int|WP_Error
+     */
+    private function sideload_wxr_attachment( string $url, string $title ) {
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/media.php';
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+
+        $tmp = download_url( $url, 20 );
+
+        if ( is_wp_error( $tmp ) ) {
+            return new WP_Error(
+                'pin_wxr_attachment_download_failed',
+                sprintf(
+                    /* translators: 1: attachment URL, 2: error message. */
+                    __( 'Could not download WXR attachment %1$s: %2$s', 'pin-site-importer' ),
+                    $url,
+                    $tmp->get_error_message()
+                )
+            );
+        }
+
+        $path = (string) wp_parse_url( $url, PHP_URL_PATH );
+        $name = sanitize_file_name( basename( $path ) );
+
+        if ( '' === $name ) {
+            $name = 'imported-media';
+        }
+
+        $file = array(
+            'name'     => $name,
+            'tmp_name' => $tmp,
+        );
+
+        $attachment_id = media_handle_sideload( $file, 0, $title );
+
+        if ( is_wp_error( $attachment_id ) ) {
+            @unlink( $tmp ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+            return $attachment_id;
+        }
+
+        update_post_meta( (int) $attachment_id, '_source_url', esc_url_raw( $url ) );
+
+        return (int) $attachment_id;
     }
 
     /** @return array<string,mixed>|WP_Error */
@@ -568,6 +754,13 @@ final class PIN_Site_Importer_Structured_Source {
         DOMNode $context,
         bool $sanitize = true
     ): string {
+        if ( str_starts_with( $query, 'wp:' ) ) {
+            $local = substr( $query, 3 );
+            $query = './*[local-name()="' . preg_replace( '/[^A-Za-z0-9_-]/', '', $local ) . '"]';
+        } elseif ( 'excerpt:encoded' === $query ) {
+            $query = './*[local-name()="encoded" and namespace-uri()!="http://purl.org/rss/1.0/modules/content/"]';
+        }
+
         $node = $xpath->query( $query, $context )->item( 0 );
 
         if ( ! $node ) {
