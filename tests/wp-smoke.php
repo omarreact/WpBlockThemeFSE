@@ -354,6 +354,15 @@ pin_smoke_assert(
 );
 
 $header_part_id = (int) $e2e['template_parts']['header'];
+pin_smoke_assert(
+    'header' === (string) get_post_field( 'post_name', $header_part_id ),
+    'Explicit global application did not activate the imported header slug.'
+);
+$active_header_content = (string) get_post_field( 'post_content', $header_part_id );
+pin_smoke_assert(
+    str_contains( $active_header_content, home_url( '/' ) ),
+    'Imported active header did not reconcile its Home link to the WordPress front-page URL.'
+);
 $global_scripts = get_post_meta( $header_part_id, '_pin_import_scripts', true );
 pin_smoke_assert(
     is_array( $global_scripts ) && ! empty( $global_scripts ),
