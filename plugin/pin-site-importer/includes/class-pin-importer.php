@@ -21,6 +21,7 @@ final class PIN_Site_Importer_Importer {
         $post_status    = 'publish' === ( $args['post_status'] ?? '' ) ? 'publish' : 'draft';
         $import_media   = ! empty( $args['import_media'] );
         $import_css     = ! empty( $args['import_css'] );
+        $import_scripts = ! empty( $args['import_scripts'] );
         $set_home       = ! empty( $args['set_home'] );
         $create_navigation = ! empty( $args['create_navigation'] );
         $github         = new PIN_Site_Importer_GitHub_Client( $token );
@@ -29,6 +30,8 @@ final class PIN_Site_Importer_Importer {
         if ( is_wp_error( $repository ) ) {
             return $repository;
         }
+
+        $assets = new PIN_Site_Importer_Asset_Manager( $github, $repository );
 
         if ( '' !== $source_dir ) {
             if ( false !== strpos( $source_dir, '..' ) ) {
@@ -81,6 +84,7 @@ final class PIN_Site_Importer_Importer {
             'pages_failed'     => 0,
             'media_imported'   => 0,
             'css_files'        => 0,
+            'scripts_mirrored' => 0,
             'warnings'         => array(),
             'page_ids'         => array(),
             'navigation_id'    => 0,
@@ -167,7 +171,8 @@ final class PIN_Site_Importer_Importer {
                     $github,
                     $repository,
                     $path,
-                    $converted['stylesheets']
+                    $converted['stylesheets'],
+                    $assets
                 );
 
                 if ( is_wp_error( $css ) ) {
@@ -176,6 +181,23 @@ final class PIN_Site_Importer_Importer {
                     update_post_meta( $post_id, '_pin_import_css', $css['content'] );
                     $result['css_files'] += $css['count'];
                 }
+            }
+
+            if ( $import_scripts && ! empty( $converted['scripts'] ) ) {
+                $scripts = $this->mirror_scripts( $assets, $converted['scripts'] );
+
+                if ( ! empty( $scripts['items'] ) ) {
+                    update_post_meta( $post_id, '_pin_import_scripts', $scripts['items'] );
+                    $result['scripts_mirrored'] += count( $scripts['items'] );
+                } else {
+                    delete_post_meta( $post_id, '_pin_import_scripts' );
+                }
+
+                if ( ! empty( $scripts['warnings'] ) ) {
+                    $result['warnings'] = array_merge( $result['warnings'], $scripts['warnings'] );
+                }
+            } elseif ( ! $import_scripts ) {
+                delete_post_meta( $post_id, '_pin_import_scripts' );
             }
 
             update_post_meta( $post_id, '_pin_import_source_repo', $repository['full_name'] );
@@ -361,7 +383,8 @@ final class PIN_Site_Importer_Importer {
         PIN_Site_Importer_GitHub_Client $github,
         array $repository,
         string $page_path,
-        array $stylesheets
+        array $stylesheets,
+        PIN_Site_Importer_Asset_Manager $assets
     ) {
         $content = '';
         $count   = 0;
@@ -383,7 +406,8 @@ final class PIN_Site_Importer_Importer {
                 $css,
                 $github,
                 $repository,
-                $css_path
+                $css_path,
+                $assets
             );
 
             if ( strlen( $content ) + strlen( $css ) > self::MAX_CSS_BYTES_PER_PAGE ) {
@@ -407,13 +431,20 @@ final class PIN_Site_Importer_Importer {
         string $css,
         PIN_Site_Importer_GitHub_Client $github,
         array $repository,
-        string $css_path
+        string $css_path,
+        PIN_Site_Importer_Asset_Manager $assets
     ): string {
         return (string) preg_replace_callback(
             '~url\(\s*([\'\"]?)(?!data:|https?:|//|#)([^)\'\"]+)\1\s*\)~i',
-            static function ( array $matches ) use ( $github, $repository, $css_path ): string {
+            static function ( array $matches ) use ( $github, $repository, $css_path, $assets ): string {
                 $asset_path = $github->resolve_path( $css_path, trim( $matches[2] ) );
-                $raw_url    = $github->raw_url(
+                $mirrored   = $assets->mirror( $asset_path, 4194304 );
+
+                if ( ! is_wp_error( $mirrored ) ) {
+                    return 'url("' . esc_url_raw( $mirrored ) . '")';
+                }
+
+                $raw_url = $github->raw_url(
                     $repository['owner'],
                     $repository['repo'],
                     $repository['branch'],
@@ -505,6 +536,53 @@ final class PIN_Site_Importer_Importer {
         return (int) $navigation_id;
     }
 
+    /**
+     * Mirror local JavaScript files referenced by an imported page.
+     *
+     * @param array<int,array<string,string>> $scripts
+     * @return array{items:array<int,array<string,string>>,warnings:string[]}
+     */
+    private function mirror_scripts(
+        PIN_Site_Importer_Asset_Manager $assets,
+        array $scripts
+    ): array {
+        $items    = array();
+        $warnings = array();
+
+        foreach ( array_slice( $scripts, 0, 24 ) as $script ) {
+            $path = (string) ( $script['path'] ?? '' );
+
+            if ( '' === $path ) {
+                continue;
+            }
+
+            $url = $assets->mirror( $path, 4194304 );
+
+            if ( is_wp_error( $url ) ) {
+                $warnings[] = sprintf(
+                    /* translators: 1: script path, 2: error message. */
+                    __( 'Script mirror failed for %1$s: %2$s', 'pin-site-importer' ),
+                    $path,
+                    $url->get_error_message()
+                );
+                continue;
+            }
+
+            $items[] = array(
+                'url'      => $url,
+                'type'     => 'module' === ( $script['type'] ?? '' ) ? 'module' : 'classic',
+                'strategy' => in_array( ( $script['strategy'] ?? '' ), array( 'async', 'defer' ), true )
+                    ? (string) $script['strategy']
+                    : '',
+            );
+        }
+
+        return array(
+            'items'    => $items,
+            'warnings' => $warnings,
+        );
+    }
+
     private function fallback_title( string $path ): string {
         $basename = pathinfo( $path, PATHINFO_FILENAME );
 
@@ -562,6 +640,7 @@ final class PIN_Site_Importer_Importer {
                 'failed'      => $result['pages_failed'],
                 'media'       => $result['media_imported'],
                 'css_files'   => $result['css_files'],
+                'scripts'     => $result['scripts_mirrored'],
             )
         );
 
