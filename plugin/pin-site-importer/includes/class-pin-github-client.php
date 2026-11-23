@@ -116,18 +116,22 @@ final class PIN_Site_Importer_GitHub_Client {
             return $tree;
         }
 
-        $technology = $this->detect_technology( $tree );
+        $technology   = $this->detect_technology( $tree );
+        $html_files   = $this->filter_paths( $tree, array( 'html', 'htm' ) );
+        $static_roots = $this->detect_static_roots( $html_files );
 
         return array(
-            'owner'       => $repository['owner'],
-            'repo'        => $repository['repo'],
-            'full_name'   => $repository['owner'] . '/' . $repository['repo'],
-            'branch'      => $branch,
-            'html_files'  => $this->filter_paths( $tree, array( 'html', 'htm' ) ),
-            'css_files'   => $this->filter_paths( $tree, array( 'css' ) ),
-            'technology'  => $technology,
-            'tree'        => $tree,
-            'description' => sanitize_text_field( (string) ( $metadata['description'] ?? '' ) ),
+            'owner'                  => $repository['owner'],
+            'repo'                   => $repository['repo'],
+            'full_name'              => $repository['owner'] . '/' . $repository['repo'],
+            'branch'                 => $branch,
+            'html_files'             => $html_files,
+            'css_files'              => $this->filter_paths( $tree, array( 'css' ) ),
+            'technology'             => $technology,
+            'static_roots'           => $static_roots,
+            'recommended_source_dir' => $this->recommend_static_root( $html_files, $static_roots ),
+            'tree'                   => $tree,
+            'description'            => sanitize_text_field( (string) ( $metadata['description'] ?? '' ) ),
         );
     }
 
@@ -325,6 +329,73 @@ final class PIN_Site_Importer_GitHub_Client {
         sort( $paths );
 
         return $paths;
+    }
+
+    /**
+     * Detect common static-export/build roots that actually contain HTML.
+     *
+     * @param string[] $html_files
+     * @return string[]
+     */
+    public function detect_static_roots( array $html_files ): array {
+        $candidates = array( 'out', 'dist', 'build', 'public', 'site', 'docs' );
+        $roots      = array();
+
+        foreach ( $candidates as $candidate ) {
+            $prefix = trailingslashit( $candidate );
+
+            foreach ( $html_files as $path ) {
+                if ( str_starts_with( (string) $path, $prefix ) ) {
+                    $roots[] = $candidate;
+                    break;
+                }
+            }
+        }
+
+        return array_values( array_unique( $roots ) );
+    }
+
+    /**
+     * Recommend a build root only when no root-level HTML exists and one common
+     * static-output directory is clearly dominant. This avoids importing docs
+     * or examples accidentally when the repository already contains a site at
+     * its root.
+     *
+     * @param string[] $html_files
+     * @param string[] $static_roots
+     */
+    public function recommend_static_root( array $html_files, array $static_roots ): string {
+        foreach ( $html_files as $path ) {
+            if ( false === strpos( (string) $path, '/' ) ) {
+                return '';
+            }
+        }
+
+        if ( 1 === count( $static_roots ) ) {
+            return (string) $static_roots[0];
+        }
+
+        $priority = array( 'out', 'dist', 'build' );
+
+        foreach ( $priority as $candidate ) {
+            if ( ! in_array( $candidate, $static_roots, true ) ) {
+                continue;
+            }
+
+            $count = 0;
+
+            foreach ( $html_files as $path ) {
+                if ( str_starts_with( (string) $path, trailingslashit( $candidate ) ) ) {
+                    ++$count;
+                }
+            }
+
+            if ( $count >= max( 1, (int) ceil( count( $html_files ) * 0.75 ) ) ) {
+                return $candidate;
+            }
+        }
+
+        return '';
     }
 
     /**
