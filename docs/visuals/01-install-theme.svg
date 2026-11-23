@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/></marker></defs>
+<rect width="1280" height="720" rx="28" fill="#f8fafc"/>
+<rect x="40" y="38" width="1200" height="76" rx="18" fill="#111827"/>
+<text x="74" y="86" font-family="Arial" font-size="30" font-weight="700" fill="white">PIN Universal FSE — Installation flow</text>
+<g font-family="Arial">
+<rect x="70" y="160" width="250" height="150" rx="18" fill="white" stroke="#cbd5e1" stroke-width="2"/>
+<circle cx="108" cy="198" r="23" fill="#2563eb"/><text x="101" y="207" font-size="24" font-weight="700" fill="white">1</text>
+<text x="145" y="196" font-size="22" font-weight="700" fill="#0f172a">Download ZIP</text>
+<text x="98" y="238" font-size="17" fill="#475569">Repository/theme ZIP</text><text x="98" y="266" font-size="17" fill="#475569">from GitHub</text>
+<rect x="375" y="160" width="250" height="150" rx="18" fill="white" stroke="#cbd5e1" stroke-width="2"/>
+<circle cx="413" cy="198" r="23" fill="#2563eb"/><text x="406" y="207" font-size="24" font-weight="700" fill="white">2</text>
+<text x="450" y="196" font-size="22" font-weight="700" fill="#0f172a">Upload theme</text>
+<text x="402" y="238" font-size="17" fill="#475569">Appearance → Themes</text><text x="402" y="266" font-size="17" fill="#475569">Add New → Upload</text>
+<rect x="680" y="160" width="250" height="150" rx="18" fill="white" stroke="#cbd5e1" stroke-width="2"/>
+<circle cx="718" cy="198" r="23" fill="#2563eb"/><text x="711" y="207" font-size="24" font-weight="700" fill="white">3</text>
+<text x="755" y="196" font-size="22" font-weight="700" fill="#0f172a">Activate</text>
+<text x="707" y="238" font-size="17" fill="#475569">PIN Universal FSE</text><text x="707" y="266" font-size="17" fill="#475569">becomes active</text>
+<rect x="985" y="160" width="225" height="150" rx="18" fill="white" stroke="#cbd5e1" stroke-width="2"/>
+<circle cx="1023" cy="198" r="23" fill="#2563eb"/><text x="1016" y="207" font-size="24" font-weight="700" fill="white">4</text>
+<text x="1060" y="196" font-size="22" font-weight="700" fill="#0f172a">Companion</text>
+<text x="1012" y="238" font-size="17" fill="#475569">Importer installs</text><text x="1012" y="266" font-size="17" fill="#475569">and activates</text>
+<line x1="320" y1="235" x2="367" y2="235" stroke="#2563eb" stroke-width="4" marker-end="url(#a)"/>
+<line x1="625" y1="235" x2="672" y2="235" stroke="#2563eb" stroke-width="4" marker-end="url(#a)"/>
+<line x1="930" y1="235" x2="977" y2="235" stroke="#2563eb" stroke-width="4" marker-end="url(#a)"/>
+<rect x="110" y="380" width="1060" height="118" rx="18" fill="#ecfdf5" stroke="#86efac" stroke-width="2"/>
+<text x="142" y="422" font-size="22" font-weight="700" fill="#166534">✅ Expected</text>
+<text x="142" y="458" font-size="19" fill="#166534">Plugins → PIN Site Importer active  ·  Tools → PIN Site Importer available</text>
+<rect x="110" y="530" width="1060" height="118" rx="18" fill="#fff7ed" stroke="#fdba74" stroke-width="2"/>
+<text x="142" y="572" font-size="22" font-weight="700" fill="#9a3412">⚠ If automatic installation fails</text>
+<text x="142" y="608" font-size="19" fill="#9a3412">Fix filesystem permissions, then use “Retry PIN Site Importer installation” in the administrator notice.</text>
+</g></svg>

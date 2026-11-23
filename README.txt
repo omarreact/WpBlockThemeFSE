@@ -137,3 +137,19 @@ Structured Build hardening: portable frontend/editor URLs; ordered per-page
 assets; structured sections; preserved semantics, anchors and rich HTML;
 Unicode routes; explicit hierarchy/path limits; staged builds; build reports;
 and Gutenberg core save compatibility checks.
+
+
+COMPLETE VISUAL DOCUMENTATION
+A complete annotated installation/import/editing guide is available at:
+https://github.com/omarreact/WpBlockThemeFSE/blob/main/docs/visual-install-import-guide.md
+
+It includes:
+- visual theme installation and companion-plugin setup;
+- every PIN Site Importer field and checkbox;
+- safe Draft -> review -> Publish workflow;
+- HTML, Next/React/Vite/Angular static export, Structured JSON and WXR use cases;
+- private-repository/token guidance;
+- Gutenberg, Site Editor, header/footer, Navigation and Global Styles editing;
+- re-import behavior, standalone pages and Structured Build Mode;
+- troubleshooting and production validation checklists;
+- numbered virtual indicators and annotated workflow diagrams.

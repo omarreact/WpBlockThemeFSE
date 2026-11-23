@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760">
+<defs><marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/></marker></defs>
+<rect width="1280" height="760" rx="28" fill="#f8fafc"/>
+<text x="70" y="70" font-family="Arial" font-size="30" font-weight="700" fill="#0f172a">Safe import → review → publish workflow</text>
+<g font-family="Arial">
+<rect x="70" y="130" width="245" height="135" rx="18" fill="#dbeafe" stroke="#93c5fd" stroke-width="2"/>
+<text x="96" y="168" font-size="22" font-weight="700" fill="#1e3a8a">① Import as Draft</text><text x="96" y="204" font-size="17" fill="#1e40af">Keep global apply OFF</text><text x="96" y="233" font-size="17" fill="#1e40af">Preserve CSS/assets</text>
+<rect x="375" y="130" width="245" height="135" rx="18" fill="#ecfdf5" stroke="#86efac" stroke-width="2"/>
+<text x="401" y="168" font-size="22" font-weight="700" fill="#166534">② Review result</text><text x="401" y="204" font-size="17" fill="#166534">Imported / failed counts</text><text x="401" y="233" font-size="17" fill="#166534">Read every warning</text>
+<rect x="680" y="130" width="245" height="135" rx="18" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="2"/>
+<text x="706" y="168" font-size="22" font-weight="700" fill="#5b21b6">③ Visual QA</text><text x="706" y="204" font-size="17" fill="#6d28d9">Pages + Site Editor</text><text x="706" y="233" font-size="17" fill="#6d28d9">Desktop + mobile</text>
+<rect x="985" y="130" width="225" height="135" rx="18" fill="#fff7ed" stroke="#fdba74" stroke-width="2"/>
+<text x="1011" y="168" font-size="22" font-weight="700" fill="#9a3412">④ Functional QA</text><text x="1011" y="204" font-size="17" fill="#9a3412">Links / media / JS</text><text x="1011" y="233" font-size="17" fill="#9a3412">Forms / APIs separately</text>
+<line x1="315" y1="197" x2="367" y2="197" stroke="#2563eb" stroke-width="4" marker-end="url(#arr)"/><line x1="620" y1="197" x2="672" y2="197" stroke="#2563eb" stroke-width="4" marker-end="url(#arr)"/><line x1="925" y1="197" x2="977" y2="197" stroke="#2563eb" stroke-width="4" marker-end="url(#arr)"/>
+<rect x="170" y="340" width="940" height="115" rx="18" fill="white" stroke="#cbd5e1" stroke-width="2"/>
+<text x="210" y="385" font-size="22" font-weight="700" fill="#0f172a">⑤ Approved?</text>
+<text x="210" y="420" font-size="18" fill="#475569">No → fix source/options and repeat Draft import.    Yes → controlled publish.</text>
+<line x1="640" y1="455" x2="640" y2="515" stroke="#2563eb" stroke-width="4" marker-end="url(#arr)"/>
+<rect x="250" y="525" width="780" height="155" rx="18" fill="#dcfce7" stroke="#4ade80" stroke-width="2"/>
+<text x="290" y="570" font-size="24" font-weight="700" fill="#166534">⑥ Publish + apply only approved global changes</text>
+<text x="290" y="608" font-size="18" fill="#166534">Navigation · header/footer · homepage are explicit choices.</text>
+<text x="290" y="638" font-size="18" fill="#166534">Keep a backup/rollback point before changing production.</text>
+</g></svg>

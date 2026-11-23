@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820">
+<rect width="1280" height="820" rx="28" fill="#f8fafc"/>
+<rect x="50" y="35" width="1180" height="75" rx="18" fill="#111827"/>
+<text x="82" y="83" font-family="Arial" font-size="29" font-weight="700" fill="white">Where imported content is edited</text>
+<g font-family="Arial">
+<rect x="70" y="150" width="350" height="260" rx="20" fill="white" stroke="#cbd5e1" stroke-width="2"/>
+<text x="102" y="195" font-size="24" font-weight="700" fill="#0f172a">✏ Page Editor</text>
+<text x="102" y="234" font-size="18" fill="#334155">Pages → All Pages → Edit</text>
+<text x="102" y="275" font-size="17" fill="#475569">• headings / paragraphs</text>
+<text x="102" y="307" font-size="17" fill="#475569">• images / galleries / video</text>
+<text x="102" y="339" font-size="17" fill="#475569">• buttons / lists / tables</text>
+<text x="102" y="371" font-size="17" fill="#475569">• groups / columns / HTML</text>
+<rect x="465" y="150" width="350" height="260" rx="20" fill="white" stroke="#cbd5e1" stroke-width="2"/>
+<text x="497" y="195" font-size="24" font-weight="700" fill="#0f172a">✏ Site Editor</text>
+<text x="497" y="234" font-size="18" fill="#334155">Appearance → Editor</text>
+<text x="497" y="275" font-size="17" fill="#475569">• header template part</text>
+<text x="497" y="307" font-size="17" fill="#475569">• footer template part</text>
+<text x="497" y="339" font-size="17" fill="#475569">• templates / patterns</text>
+<text x="497" y="371" font-size="17" fill="#475569">• global Styles</text>
+<rect x="860" y="150" width="350" height="260" rx="20" fill="white" stroke="#cbd5e1" stroke-width="2"/>
+<text x="892" y="195" font-size="24" font-weight="700" fill="#0f172a">✏ Navigation</text>
+<text x="892" y="234" font-size="18" fill="#334155">Appearance → Editor</text>
+<text x="892" y="275" font-size="17" fill="#475569">• imported page links</text>
+<text x="892" y="307" font-size="17" fill="#475569">• source Navigation blocks</text>
+<text x="892" y="339" font-size="17" fill="#475569">• menu order / hierarchy</text>
+<rect x="110" y="480" width="1060" height="125" rx="18" fill="#eff6ff" stroke="#93c5fd" stroke-width="2"/>
+<text x="145" y="525" font-size="22" font-weight="700" fill="#1e3a8a">🎨 Fidelity in the editor</text>
+<text x="145" y="562" font-size="18" fill="#1e40af">Imported CSS is injected into the block-editor canvas so pages look closer to the source while editing.</text>
+<rect x="110" y="635" width="1060" height="125" rx="18" fill="#fff7ed" stroke="#fdba74" stroke-width="2"/>
+<text x="145" y="680" font-size="22" font-weight="700" fill="#9a3412">⚠ Interaction boundary</text>
+<text x="145" y="717" font-size="18" fill="#9a3412">Source website JavaScript does not execute inside the editor. Complex preserved markup may be Custom HTML rather than individual visual controls.</text>
+</g></svg>
