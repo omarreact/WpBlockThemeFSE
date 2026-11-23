@@ -22,6 +22,7 @@ final class PIN_Site_Importer_Importer {
         $import_media   = ! empty( $args['import_media'] );
         $import_css     = ! empty( $args['import_css'] );
         $import_scripts = ! empty( $args['import_scripts'] );
+        $mirror_assets  = ! empty( $args['mirror_assets'] );
         $set_home       = ! empty( $args['set_home'] );
         $create_navigation = ! empty( $args['create_navigation'] );
         $import_template_parts = ! empty( $args['import_template_parts'] );
@@ -93,11 +94,27 @@ final class PIN_Site_Importer_Importer {
             'media_imported'   => 0,
             'css_files'        => 0,
             'scripts_mirrored' => 0,
+            'assets_mirrored'  => 0,
             'warnings'         => array(),
             'page_ids'         => array(),
             'navigation_id'    => 0,
             'template_parts'   => array(),
         );
+
+        if ( $mirror_assets ) {
+            $asset_mirror = $assets->mirror_tree_assets(
+                (array) $repository['tree'],
+                $source_dir
+            );
+            $result['assets_mirrored'] = (int) $asset_mirror['count'];
+
+            if ( ! empty( $asset_mirror['warnings'] ) ) {
+                $result['warnings'] = array_merge(
+                    $result['warnings'],
+                    (array) $asset_mirror['warnings']
+                );
+            }
+        }
 
         if ( count( $repository['html_files'] ) > self::MAX_PAGES ) {
             $result['warnings'][] = sprintf(
@@ -1001,6 +1018,7 @@ final class PIN_Site_Importer_Importer {
                 'media'       => $result['media_imported'],
                 'css_files'   => $result['css_files'],
                 'scripts'     => $result['scripts_mirrored'],
+                'assets'      => $result['assets_mirrored'],
             )
         );
 
