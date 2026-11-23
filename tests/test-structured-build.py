@@ -153,6 +153,20 @@ class StructuredBuildTests(unittest.TestCase):
             self.build()
         self.assertEqual(previous, (wxr.read_bytes(), archive.read_bytes(), (builder.theme / "functions.php").read_bytes()))
 
+    def test_independent_homepage_keeps_its_own_chrome(self):
+        self.manifest["pages"][0]["template"] = "standalone"
+        self.manifest["header"] = {"html": "<header>Global header</header>"}
+        self.write("index.html", '<body><header class="alternate-header">Own header</header><main><h1>Alternate</h1></main><footer class="alternate-footer">Own footer</footer></body>')
+        builder, _, items, _, _ = self.build()
+        content = items[0].findtext(CONTENT)
+        self.assertIn('alternate-header', content)
+        self.assertIn('alternate-footer', content)
+        self.assertNotIn('Global header', content)
+        self.assertEqual('pin-standalone', next(m.findtext(WP + 'meta_value') for m in items[0].findall(WP + 'postmeta') if m.findtext(WP + 'meta_key') == '_wp_page_template'))
+        template = (builder.theme / 'templates/pin-standalone.html').read_text()
+        self.assertNotIn('template-part', template)
+        self.assertTrue(json.loads((builder.theme / 'pin-build.json').read_text())['pages']['/']['standalone'])
+
     def test_cdata_terminator_cannot_break_wxr(self):
         self.manifest["pages"][0].update(file="", html='<p>Content</p>', seo={"title": "Title ]]> & </title>"})
         _, _, items, _, _ = self.build()

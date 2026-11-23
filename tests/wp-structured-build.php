@@ -38,7 +38,7 @@ $request->set_param( 'context', 'edit' );
 $data = rest_do_request( $request )->get_data();
 pin_build_assert( isset( $data['content']['raw'] ), 'Editor REST raw content missing' );
 pin_build_assert( ! str_contains( $data['content']['raw'], '/__pin_route__/' ), 'Route marker leaked into editor raw content' );
-if ( $config['asset_prefix'] !== $actual_source ) {
+if ( $config['asset_prefix'] !== wp_parse_url( $actual_source, PHP_URL_PATH ) ) {
     pin_build_assert( ! str_contains( $data['content']['raw'], $config['asset_prefix'] ), 'Standard theme path leaked on custom content installation' );
 }
 

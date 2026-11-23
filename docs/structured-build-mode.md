@@ -113,3 +113,7 @@ The JS check uses locked test-only dependencies under `tests/gutenberg/`.
 Runtime URL/editor behavior follows WordPress's
 [editor asset guidance](https://developer.wordpress.org/block-editor/how-to-guides/enqueueing-assets-in-the-editor/)
 and [block rendering filters](https://developer.wordpress.org/reference/hooks/render_block_data/).
+
+Pages with `"template": "standalone"` preserve their complete source header/footer
+and use the Independent source page template. Shared template-part assets are
+excluded on those pages, so alternate homepages keep their own composition.

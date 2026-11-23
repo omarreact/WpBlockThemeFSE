@@ -83,6 +83,9 @@ function pin_structured_bundle(): array {
     $route = (string) get_post_meta( get_queried_object_id(), '_pin_structured_route', true );
     $page = $config['pages'][ $route ] ?? array( 'css' => array(), 'js' => array() );
     $shared = $config['shared'];
+    if ( ! empty( $page['standalone'] ) ) {
+        return $page;
+    }
     return array(
         'css' => array_merge( $page['css'], $shared['css'] ),
         'js' => array_merge( $shared['header_js'] ?? $shared['js'], $page['js'], $shared['footer_js'] ?? array() ),
