@@ -219,7 +219,20 @@ final class PIN_Site_Importer_Importer {
             $page_css = '';
 
             if ( $import_css ) {
-                $page_css = trim( (string) ( $converted['inline_css'] ?? '' ) );
+                $page_css    = trim( (string) ( $converted['inline_css'] ?? '' ) );
+                $embedded_css = trim( (string) ( $converted['embedded_css'] ?? '' ) );
+
+                if ( '' !== $embedded_css ) {
+                    $embedded_css = $this->rewrite_css_urls(
+                        $embedded_css,
+                        $github,
+                        $repository,
+                        $path,
+                        $assets,
+                        $source_dir
+                    );
+                    $page_css = trim( $page_css . "\n" . $embedded_css );
+                }
 
                 if ( ! empty( $converted['stylesheets'] ) ) {
                     $css = $this->collect_css(
@@ -227,7 +240,8 @@ final class PIN_Site_Importer_Importer {
                         $repository,
                         $path,
                         $converted['stylesheets'],
-                        $assets
+                        $assets,
+                        $source_dir
                     );
 
                     if ( is_wp_error( $css ) ) {
@@ -642,7 +656,8 @@ final class PIN_Site_Importer_Importer {
         array $repository,
         string $page_path,
         array $stylesheets,
-        PIN_Site_Importer_Asset_Manager $assets
+        PIN_Site_Importer_Asset_Manager $assets,
+        string $source_root = ''
     ) {
         $content = '';
         $count   = 0;
@@ -665,7 +680,8 @@ final class PIN_Site_Importer_Importer {
                 $github,
                 $repository,
                 $css_path,
-                $assets
+                $assets,
+                $source_root
             );
 
             if ( strlen( $content ) + strlen( $css ) > self::MAX_CSS_BYTES_PER_PAGE ) {
@@ -690,13 +706,21 @@ final class PIN_Site_Importer_Importer {
         PIN_Site_Importer_GitHub_Client $github,
         array $repository,
         string $css_path,
-        PIN_Site_Importer_Asset_Manager $assets
+        PIN_Site_Importer_Asset_Manager $assets,
+        string $source_root = ''
     ): string {
         return (string) preg_replace_callback(
             '~url\(\s*([\'\"]?)(?!data:|https?:|//|#)([^)\'\"]+)\1\s*\)~i',
-            static function ( array $matches ) use ( $github, $repository, $css_path, $assets ): string {
-                $asset_path = $github->resolve_path( $css_path, trim( $matches[2] ) );
-                $mirrored   = $assets->mirror( $asset_path, 4194304 );
+            static function ( array $matches ) use ( $github, $repository, $css_path, $assets, $source_root ): string {
+                $reference = trim( $matches[2] );
+
+                if ( str_starts_with( $reference, '/' ) && '' !== trim( $source_root, '/' ) ) {
+                    $asset_path = trailingslashit( trim( $source_root, '/' ) ) . ltrim( $reference, '/' );
+                } else {
+                    $asset_path = $github->resolve_path( $css_path, $reference );
+                }
+
+                $mirrored = $assets->mirror( $asset_path, 4194304 );
 
                 if ( ! is_wp_error( $mirrored ) ) {
                     return 'url("' . esc_url_raw( $mirrored ) . '")';
