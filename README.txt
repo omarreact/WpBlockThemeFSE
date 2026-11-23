@@ -1,5 +1,5 @@
 PIN Universal FSE
-Version: 0.3.0
+Version: 0.3.1
 Source: https://github.com/omarreact/WpBlockThemeFSE
 WordPress 6.6+ | PHP 8.1+
 
@@ -29,6 +29,7 @@ COMPANION PLUGIN RESPONSIBILITIES
 - site-manifest.json/content.json/design-tokens.json ingestion with structured page metadata, SEO hints and CSS design-token variables.
 - WordPress WXR import for posts/pages, parent relationships, public custom fields, categories and tags.
 - Public repositories plus optional per-request GitHub token for private repos.
+- Public repository file bodies are fetched from raw.githubusercontent.com instead of the rate-limited Contents API; repository metadata/tree discovery is cached briefly and uses only a few API requests.
   Tokens are never stored.
 - Optional branch and static build-folder selection, e.g. out/ or dist/.
 - Automatic detection/selection of a clear common static output root when the

@@ -86,7 +86,7 @@ final class PIN_Site_Importer_Admin {
                         <th scope="row"><label for="pin-token"><?php esc_html_e( 'GitHub token (optional)', 'pin-site-importer' ); ?></label></th>
                         <td>
                             <input id="pin-token" name="token" type="password" class="regular-text" autocomplete="off">
-                            <p class="description"><?php esc_html_e( 'Used only for this request and never saved by the plugin.', 'pin-site-importer' ); ?></p>
+                            <p class="description"><?php esc_html_e( 'Used only for this request and never saved. Public file bodies use GitHub raw content without consuming core API quota; add a token if this server IP is rate-limited for repository metadata/tree discovery.', 'pin-site-importer' ); ?></p>
                         </td>
                     </tr>
                     <tr>
