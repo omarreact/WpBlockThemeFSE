@@ -447,6 +447,7 @@ final class PIN_Site_Importer_Structured_Source {
             'pages_failed'     => 0,
             'media_imported'   => $media_imported,
             'comments_imported'=> $comments_imported,
+            'css_files'        => 0,
             'assets_mirrored'  => 0,
             'scripts_mirrored' => 0,
             'warnings'         => $warnings,
