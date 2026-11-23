@@ -505,6 +505,8 @@ final class PIN_Site_Importer_Importer {
             $result['page_ids'][] = $post_id;
         }
 
+        $result['assets_mirrored'] = $assets->get_mirrored_count();
+
         if ( 0 === (int) $result['pages_imported'] && (int) $result['pages_failed'] > 0 ) {
             $first_warning = '';
 
@@ -549,7 +551,7 @@ final class PIN_Site_Importer_Importer {
                 (array) $repository['tree'],
                 $source_dir
             );
-            $result['assets_mirrored'] = (int) $asset_mirror['count'];
+            $result['assets_mirrored'] = $assets->get_mirrored_count();
 
             if ( ! empty( $asset_mirror['warnings'] ) ) {
                 $result['warnings'] = array_merge(
@@ -719,6 +721,15 @@ final class PIN_Site_Importer_Importer {
                 $result['navigation_id'] = (int) $navigation_id;
             }
         }
+
+        $result['warnings'] = array_values(
+            array_unique(
+                array_filter(
+                    array_map( 'strval', (array) $result['warnings'] ),
+                    static fn( $warning ) => '' !== trim( $warning )
+                )
+            )
+        );
 
         $this->store_history( $result );
 
