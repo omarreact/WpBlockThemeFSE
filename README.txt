@@ -40,10 +40,15 @@ COMPANION PLUGIN RESPONSIBILITIES
 - Internal link rewriting to imported WordPress page permalinks.
 - Authenticated repository image import into the WordPress Media Library,
   including private-repository assets.
-- Local CSS preservation, safe inline-style preservation and CDN/external
-  stylesheet loading.
-- CSS font/image asset mirroring into WordPress uploads where possible.
+- Local CSS, embedded critical CSS, safe inline-style preservation and
+  CDN/external stylesheet loading.
+- Root-relative CSS asset rewriting against the selected static build folder.
+- CSS font/image assets plus safe static build chunks/fonts/assets mirrored into
+  WordPress uploads while preserving repository-relative paths.
 - Local classic/module JavaScript mirroring and frontend loading.
+- Optional external/CDN JavaScript loading for explicitly trusted repositories.
+- Imported CSS and external styles injected into the Gutenberg/Site Editor
+  content canvas so editing more closely matches the imported frontend.
 - WordPress Navigation generation from imported pages while preserving
   source-provided Navigation blocks.
 - Optional root index.html assignment as the WordPress front page.
@@ -87,6 +92,10 @@ GitHub Actions currently performs:
 - WordPress parent/child page hierarchy.
 - Database-backed FSE template-part creation and taxonomy assignment.
 - Imported navigation injection and source-navigation preservation.
+- Real GitHub fixture ingestion into WordPress, including pages, hierarchy,
+  CSS/JavaScript/static assets, FSE template parts and navigation.
+- Gutenberg editor-canvas style injection.
+- Embedded critical CSS and root-relative asset URL rewriting.
 
 A hosted staging test is still required before a production release because
 real hosting filesystem permissions, PHP extensions, outbound GitHub access,
