@@ -39,7 +39,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
     }
 
     /**
-     * @return array{title:string,content:string,images:array<string,array{url:string,path:string}>,stylesheets:string[],scripts:array<int,array<string,string>>,inline_css:string}|WP_Error
+     * @return array{title:string,content:string,header_content:string,footer_content:string,images:array<string,array{url:string,path:string}>,stylesheets:string[],scripts:array<int,array<string,string>>,inline_css:string}|WP_Error
      */
     public function convert( string $html ) {
         if ( ! class_exists( 'DOMDocument' ) ) {
@@ -80,8 +80,10 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             $body = $document->documentElement;
         }
 
-        $content = '';
-        $images  = array();
+        $content        = '';
+        $header_content = '';
+        $footer_content = '';
+        $images         = array();
 
         foreach ( $xpath->query( '//img[@src]' ) as $image_node ) {
             if ( ! $image_node instanceof DOMElement ) {
@@ -104,6 +106,25 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             }
         }
 
+        $header_node = $this->find_template_part_node( $xpath, 'header' );
+        $footer_node = $this->find_template_part_node( $xpath, 'footer' );
+
+        if ( $header_node instanceof DOMElement ) {
+            $header_content = $this->node_to_block( $header_node, $images );
+
+            if ( $header_node->parentNode ) {
+                $header_node->parentNode->removeChild( $header_node );
+            }
+        }
+
+        if ( $footer_node instanceof DOMElement ) {
+            $footer_content = $this->node_to_block( $footer_node, $images );
+
+            if ( $footer_node->parentNode ) {
+                $footer_node->parentNode->removeChild( $footer_node );
+            }
+        }
+
         if ( $body ) {
             foreach ( $body->childNodes as $child ) {
                 $content .= $this->node_to_block( $child, $images );
@@ -111,8 +132,10 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         }
 
         return array(
-            'title'       => $title,
-            'content'     => trim( $content ),
+            'title'          => $title,
+            'content'        => trim( $content ),
+            'header_content' => trim( $header_content ),
+            'footer_content' => trim( $footer_content ),
             'images'      => $images,
             'stylesheets' => $this->extract_stylesheets( $xpath ),
             'scripts'     => $this->extract_scripts( $xpath ),
@@ -233,7 +256,81 @@ final class PIN_Site_Importer_HTML_To_Blocks {
                 . '</div><!-- /wp:buttons -->';
         }
 
-        if ( in_array( $tag, array( 'section', 'div', 'main', 'article', 'header', 'footer', 'nav', 'aside' ), true ) ) {
+        if ( 'nav' === $tag ) {
+            $links = '';
+            $seen  = array();
+
+            foreach ( $node->getElementsByTagName( 'a' ) as $anchor ) {
+                if ( ! $anchor instanceof DOMElement ) {
+                    continue;
+                }
+
+                $label = trim( preg_replace( '/\s+/', ' ', (string) $anchor->textContent ) );
+                $href  = trim( $anchor->getAttribute( 'href' ) );
+
+                if ( '' === $label || '' === $href ) {
+                    continue;
+                }
+
+                $href = $this->rewrite_href( $href );
+                $key  = $label . '|' . $href;
+
+                if ( isset( $seen[ $key ] ) ) {
+                    continue;
+                }
+
+                $seen[ $key ] = true;
+                $attrs = array(
+                    'label'          => sanitize_text_field( $label ),
+                    'url'            => $href,
+                    'kind'           => 'custom',
+                    'isTopLevelLink' => true,
+                );
+
+                if ( '_blank' === strtolower( $anchor->getAttribute( 'target' ) ) ) {
+                    $attrs['opensInNewTab'] = true;
+                }
+
+                $links .= '<!-- wp:navigation-link ' . wp_json_encode( $attrs ) . ' /-->';
+            }
+
+            if ( '' === $links ) {
+                return '';
+            }
+
+            $attrs = array(
+                'overlayMenu' => 'mobile',
+            );
+            $class = $this->class_attribute( $node );
+
+            if ( '' !== $class ) {
+                $attrs['className'] = $class;
+            }
+
+            return '<!-- wp:navigation ' . wp_json_encode( $attrs ) . ' -->'
+                . $links
+                . '<!-- /wp:navigation -->';
+        }
+
+        if ( 'a' === $tag ) {
+            $href = $this->rewrite_href( $node->getAttribute( 'href' ) );
+            $inner = $this->safe_inner_html( $node );
+
+            if ( '' === trim( wp_strip_all_tags( $inner ) ) ) {
+                return '';
+            }
+
+            $target = '_blank' === strtolower( $node->getAttribute( 'target' ) )
+                ? ' target="_blank" rel="noopener"'
+                : '';
+
+            return $this->paragraph_block(
+                '<a href="' . esc_url( $href ) . '"' . $target . '>' . $inner . '</a>',
+                $this->class_attribute( $node )
+            );
+        }
+
+        if ( in_array( $tag, array( 'section', 'div', 'main', 'article', 'header', 'footer', 'aside' ), true ) ) {
             $inner = '';
 
             foreach ( $node->childNodes as $child ) {
@@ -509,6 +606,21 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         }
 
         return array_values( $unique );
+    }
+
+    private function find_template_part_node( DOMXPath $xpath, string $tag ): ?DOMElement {
+        if ( ! in_array( $tag, array( 'header', 'footer' ), true ) ) {
+            return null;
+        }
+
+        $query = sprintf(
+            '//body//%1$s[not(ancestor::main) and not(ancestor::article)]',
+            $tag
+        );
+
+        $node = $xpath->query( $query )->item( 0 );
+
+        return $node instanceof DOMElement ? $node : null;
     }
 
     private function extract_title( DOMXPath $xpath ): string {
