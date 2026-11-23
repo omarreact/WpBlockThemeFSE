@@ -69,6 +69,73 @@ final class PIN_Site_Importer_Asset_Manager {
     }
 
     /**
+     * Mirror safe static assets from the selected repository/build subtree.
+     *
+     * @param array<int,array<string,mixed>> $tree
+     * @return array{count:int,warnings:string[]}
+     */
+    public function mirror_tree_assets( array $tree, string $source_dir = '' ): array {
+        $count    = 0;
+        $warnings = array();
+        $prefix   = '' !== trim( $source_dir, '/' )
+            ? trailingslashit( trim( $source_dir, '/' ) )
+            : '';
+
+        foreach ( $tree as $item ) {
+            if ( 'blob' !== ( $item['type'] ?? '' ) || empty( $item['path'] ) ) {
+                continue;
+            }
+
+            $path = (string) $item['path'];
+
+            if ( '' !== $prefix && ! str_starts_with( $path, $prefix ) ) {
+                continue;
+            }
+
+            $extension = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
+
+            if ( ! in_array( $extension, $this->allowed_extensions, true ) ) {
+                continue;
+            }
+
+            $declared_size = isset( $item['size'] ) ? (int) $item['size'] : 0;
+
+            if ( $declared_size > 8388608 ) {
+                $warnings[] = sprintf(
+                    /* translators: %s: repository asset path. */
+                    __( 'Skipped large static asset above 8 MiB: %s', 'pin-site-importer' ),
+                    $path
+                );
+                continue;
+            }
+
+            $mirrored = $this->mirror( $path, 8388608 );
+
+            if ( is_wp_error( $mirrored ) ) {
+                $warnings[] = sprintf(
+                    /* translators: 1: path, 2: error. */
+                    __( 'Static asset mirror failed for %1$s: %2$s', 'pin-site-importer' ),
+                    $path,
+                    $mirrored->get_error_message()
+                );
+
+                if ( 'pin_asset_total_limit' === $mirrored->get_error_code() ) {
+                    break;
+                }
+
+                continue;
+            }
+
+            ++$count;
+        }
+
+        return array(
+            'count'    => $count,
+            'warnings' => $warnings,
+        );
+    }
+
+    /**
      * Mirror a repository file and return its local public URL.
      *
      * @return string|WP_Error
