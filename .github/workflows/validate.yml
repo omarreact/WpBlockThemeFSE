@@ -83,10 +83,13 @@ jobs:
         run: wp-env run cli wp plugin is-active pin-site-importer
 
       - name: Configure end-to-end GitHub fixture
+        env:
+          PIN_SMOKE_GITHUB_TOKEN: ${{ github.token }}
         run: |
           SOURCE_BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
           wp-env run cli wp option update pin_smoke_source_repo "https://github.com/${GITHUB_REPOSITORY}"
           wp-env run cli wp option update pin_smoke_source_branch "${SOURCE_BRANCH}"
+          wp-env run cli wp option update pin_smoke_github_token "${PIN_SMOKE_GITHUB_TOKEN}"
 
       - name: Run WordPress smoke test
         run: wp-env run cli wp eval-file wp-content/themes/pin-universal-fse/tests/wp-smoke.php
