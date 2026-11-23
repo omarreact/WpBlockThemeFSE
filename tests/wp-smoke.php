@@ -141,6 +141,29 @@ foreach ( $parsed as $block ) {
 // Exercise WordPress persistence paths used by the importer without requiring
 // network access.
 $importer = new PIN_Site_Importer_Importer();
+
+$replace_method = new ReflectionMethod( $importer, 'replace_asset_references' );
+$replace_method->setAccessible( true );
+$remote_asset   = 'https://raw.githubusercontent.com/example/site/main/assets/icon.svg';
+$original_asset = '/assets/icon.svg';
+$local_asset    = 'https://example.test/wp-content/uploads/pin-site-importer/abc123/assets/icon.svg';
+$replaced_assets = $replace_method->invoke(
+    $importer,
+    '<img src="' . $remote_asset . '"><img src="' . $original_asset . '">',
+    $original_asset,
+    $remote_asset,
+    $local_asset
+);
+pin_smoke_assert(
+    2 === substr_count( $replaced_assets, $local_asset ),
+    'Asset replacement did not rewrite both source references exactly once.'
+);
+pin_smoke_assert(
+    ! str_contains( $replaced_assets, 'abc123https://' )
+        && ! str_contains( $replaced_assets, $local_asset . $local_asset ),
+    'Asset replacement recursively rewrote a newly localized URL.'
+);
+
 $page_method = new ReflectionMethod( $importer, 'create_page_placeholders' );
 $page_method->setAccessible( true );
 

@@ -29,6 +29,11 @@ jobs:
           python -m json.tool theme.json >/dev/null
           find styles -type f -name '*.json' -print0 | xargs -0 -n1 python -m json.tool
 
+      - name: Validate Structured Build tooling
+        run: |
+          python -m py_compile scripts/build-structured-site.py tests/test-structured-build.py
+          python tests/test-structured-build.py
+
       - name: Verify required theme and plugin files
         run: |
           test -f style.css
@@ -42,11 +47,42 @@ jobs:
           test -f plugin/pin-site-importer/includes/class-pin-importer.php
           test -f plugin/pin-site-importer/includes/class-pin-admin.php
           test -f inc/companion-plugin-installer.php
+          test -f scripts/build-structured-site.py
+          test -f tests/test-structured-build.py
+          test -f docs/structured-build-mode.md
 
       - name: Verify release versions
         run: |
-          grep -q "Version: 0.3.3" style.css
-          grep -q "Version: 0.3.3" plugin/pin-site-importer/pin-site-importer.php
+          grep -q "Version: 0.4.0" style.css
+          grep -q "Version: 0.4.0" plugin/pin-site-importer/pin-site-importer.php
+
+  structured-build-meta-gray-label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PIN Universal FSE
+        uses: actions/checkout@v5
+
+      - name: Checkout real Meta Grey Label structured source
+        uses: actions/checkout@v5
+        with:
+          repository: omarreact/meta-gray-label
+          path: build-source/meta-gray-label
+
+      - name: Build deterministic Meta Grey Label WordPress artifacts
+        run: python scripts/build-structured-site.py --source-root build-source/meta-gray-label --out-dir build/meta-gray-label
+
+      - name: Verify 52-page real-source artifact
+        run: python scripts/verify-structured-build.py build/meta-gray-label --expected-pages 52 --expected-theme pin-site-meta-grey-label
+
+      - name: Upload real-source Structured Build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: meta-gray-label-structured-build
+          path: |
+            build/meta-gray-label/website.xml
+            build/meta-gray-label/pin-site-meta-grey-label.zip
+          if-no-files-found: error
 
   wordpress-integration:
     runs-on: ubuntu-latest
@@ -106,6 +142,7 @@ jobs:
     needs:
       - validate
       - wordpress-integration
+      - structured-build-meta-gray-label
     steps:
       - name: Checkout
         uses: actions/checkout@v5

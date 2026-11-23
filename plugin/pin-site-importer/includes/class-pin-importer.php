@@ -1045,15 +1045,11 @@ final class PIN_Site_Importer_Importer {
             }
 
             if ( $attachment_url ) {
-                $content = str_replace(
-                    array(
-                        esc_url( $remote_url ),
-                        $remote_url,
-                        esc_attr( $original ),
-                        $original,
-                    ),
-                    esc_url( $attachment_url ),
-                    $content
+                $content = $this->replace_asset_references(
+                    $content,
+                    (string) $original,
+                    $remote_url,
+                    $attachment_url
                 );
             }
         }
@@ -1063,6 +1059,41 @@ final class PIN_Site_Importer_Importer {
             'count'    => $count,
             'warnings' => $warnings,
         );
+    }
+
+    /**
+     * Replace source asset references in one non-recursive pass.
+     *
+     * Sequential str_replace() calls can match a short source path inside a
+     * local URL that a previous replacement just inserted. Array-mode strtr()
+     * uses the original input only, so re-imports cannot prefix localized URLs
+     * a second time.
+     */
+    private function replace_asset_references(
+        string $content,
+        string $original,
+        string $remote_url,
+        string $attachment_url
+    ): string {
+        $replacement = esc_url( $attachment_url );
+        $map         = array();
+
+        foreach (
+            array(
+                esc_url( $remote_url ),
+                $remote_url,
+                esc_attr( $original ),
+                $original,
+            ) as $needle
+        ) {
+            $needle = (string) $needle;
+
+            if ( '' !== $needle ) {
+                $map[ $needle ] = $replacement;
+            }
+        }
+
+        return strtr( $content, $map );
     }
 
     /**
