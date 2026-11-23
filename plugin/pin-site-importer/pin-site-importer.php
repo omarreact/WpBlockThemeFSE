@@ -19,6 +19,7 @@ define( 'PIN_SITE_IMPORTER_DIR', plugin_dir_path( __FILE__ ) );
 
 $pin_site_importer_files = array(
     'includes/class-pin-github-client.php',
+    'includes/class-pin-asset-manager.php',
     'includes/class-pin-html-to-blocks.php',
     'includes/class-pin-importer.php',
     'includes/class-pin-admin.php',
