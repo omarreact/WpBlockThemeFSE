@@ -132,12 +132,23 @@ final class PIN_Site_Importer_GitHub_Client {
     }
 
     /**
-     * Read a repository file from raw.githubusercontent.com.
+     * Read a repository file through GitHub's Contents API raw media type.
+     * This works for public repositories and token-authorized private repos.
      *
      * @return string|WP_Error
      */
     public function get_file( string $owner, string $repo, string $branch, string $path, int $max_bytes = 2097152 ) {
-        $url = $this->raw_url( $owner, $repo, $branch, $path );
+        $segments = array_map( 'rawurlencode', explode( '/', ltrim( $path, '/' ) ) );
+        $url = sprintf(
+            'https://api.github.com/repos/%s/%s/contents/%s?ref=%s',
+            rawurlencode( $owner ),
+            rawurlencode( $repo ),
+            implode( '/', $segments ),
+            rawurlencode( $branch )
+        );
+
+        $headers = $this->headers();
+        $headers['Accept'] = 'application/vnd.github.raw+json';
 
         $response = wp_safe_remote_get(
             $url,
@@ -145,7 +156,7 @@ final class PIN_Site_Importer_GitHub_Client {
                 'timeout'             => 20,
                 'redirection'         => 3,
                 'limit_response_size' => $max_bytes + 1,
-                'headers'             => $this->headers(),
+                'headers'             => $headers,
             )
         );
 
@@ -157,13 +168,19 @@ final class PIN_Site_Importer_GitHub_Client {
         $body   = (string) wp_remote_retrieve_body( $response );
 
         if ( 200 !== $status ) {
+            $json = json_decode( $body, true );
+            $message = is_array( $json ) && ! empty( $json['message'] )
+                ? sanitize_text_field( (string) $json['message'] )
+                : __( 'GitHub file request failed.', 'pin-site-importer' );
+
             return new WP_Error(
                 'pin_github_file_http_error',
                 sprintf(
-                    /* translators: 1: file path, 2: HTTP status. */
-                    __( 'GitHub returned HTTP %2$d while reading %1$s.', 'pin-site-importer' ),
+                    /* translators: 1: file path, 2: HTTP status, 3: message. */
+                    __( 'GitHub returned HTTP %2$d while reading %1$s: %3$s', 'pin-site-importer' ),
                     $path,
-                    $status
+                    $status,
+                    $message
                 )
             );
         }
@@ -180,6 +197,10 @@ final class PIN_Site_Importer_GitHub_Client {
         }
 
         return $body;
+    }
+
+    public function is_authenticated(): bool {
+        return '' !== $this->token;
     }
 
     /**
