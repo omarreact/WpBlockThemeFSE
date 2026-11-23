@@ -108,9 +108,10 @@ final class PIN_Site_Importer_Importer {
         }
 
         $template_part_payload = array(
-            'header' => '',
-            'footer' => '',
-            'css'    => '',
+            'header'       => '',
+            'footer'       => '',
+            'css'          => '',
+            'external_css' => array(),
         );
 
         foreach ( $html_files as $path ) {
@@ -231,6 +232,21 @@ final class PIN_Site_Importer_Importer {
                 delete_post_meta( $post_id, '_pin_import_css' );
             }
 
+            if ( $import_css && ! empty( $converted['external_stylesheets'] ) ) {
+                $external_css = array_values(
+                    array_filter(
+                        array_map(
+                            static fn( $url ) => esc_url_raw( (string) $url, array( 'http', 'https' ) ),
+                            (array) $converted['external_stylesheets']
+                        )
+                    )
+                );
+                update_post_meta( $post_id, '_pin_import_external_css', $external_css );
+            } else {
+                delete_post_meta( $post_id, '_pin_import_external_css' );
+                $external_css = array();
+            }
+
             if ( $import_scripts && ! empty( $converted['scripts'] ) ) {
                 $scripts = $this->mirror_scripts( $assets, $converted['scripts'] );
 
@@ -251,7 +267,8 @@ final class PIN_Site_Importer_Importer {
             if ( $path === $preferred_template_source ) {
                 $template_part_payload['header'] = $header_content;
                 $template_part_payload['footer'] = $footer_content;
-                $template_part_payload['css']    = $page_css;
+                $template_part_payload['css']          = $page_css;
+                $template_part_payload['external_css'] = $external_css;
             }
 
             update_post_meta( $post_id, '_pin_import_source_repo', $repository['full_name'] );
@@ -286,6 +303,10 @@ final class PIN_Site_Importer_Importer {
 
                 if ( '' !== (string) $template_part_payload['css'] ) {
                     update_post_meta( $part_id, '_pin_import_css', (string) $template_part_payload['css'] );
+                }
+
+                if ( ! empty( $template_part_payload['external_css'] ) ) {
+                    update_post_meta( $part_id, '_pin_import_external_css', (array) $template_part_payload['external_css'] );
                 }
 
                 $result['template_parts'][ $area ] = (int) $part_id;
