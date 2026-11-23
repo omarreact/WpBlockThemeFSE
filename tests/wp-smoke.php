@@ -492,12 +492,15 @@ $wxr_result = $importer->run(
 pin_smoke_assert( ! is_wp_error( $wxr_result ), 'WXR import failed.' );
 pin_smoke_assert( 'wxr' === ( $wxr_result['source_mode'] ?? '' ), 'WXR mode was not selected.' );
 pin_smoke_assert( 3 === (int) ( $wxr_result['pages_imported'] ?? 0 ), 'WXR items were not imported.' );
+pin_smoke_assert( 1 === (int) ( $wxr_result['comments_imported'] ?? 0 ), 'WXR comments were not imported.' );
 $wxr_parent = get_page_by_path( 'wxr-parent', OBJECT, 'page' );
 $wxr_child  = get_page_by_path( 'wxr-child', OBJECT, 'page' );
 $wxr_post   = get_page_by_path( 'wxr-post', OBJECT, 'post' );
 pin_smoke_assert( $wxr_parent && $wxr_child && $wxr_post, 'WXR posts/pages were not created.' );
 pin_smoke_assert( (int) $wxr_child->post_parent === (int) $wxr_parent->ID, 'WXR page hierarchy was not restored.' );
 pin_smoke_assert( 'fixture-value' === (string) get_post_meta( $wxr_parent->ID, 'fixture_key', true ), 'WXR public post meta was not imported.' );
+$fixture_comments = get_comments( array( 'post_id' => $wxr_parent->ID, 'status' => 'all' ) );
+pin_smoke_assert( 1 === count( $fixture_comments ), 'WXR comment was not attached to the imported page.' );
 foreach ( (array) $wxr_result['page_ids'] as $wxr_post_id ) {
     wp_delete_post( (int) $wxr_post_id, true );
 }
