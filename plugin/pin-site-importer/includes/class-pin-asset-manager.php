@@ -14,6 +14,7 @@ final class PIN_Site_Importer_Asset_Manager {
     private string $base_dir;
     private string $base_url;
     private int $bytes_written = 0;
+    private int $files_mirrored = 0;
 
     /** @var string[] */
     private array $allowed_extensions = array(
@@ -215,8 +216,13 @@ final class PIN_Site_Importer_Asset_Manager {
         }
 
         $this->bytes_written += $size;
+        ++$this->files_mirrored;
 
         return esc_url_raw( $url );
+    }
+
+    public function get_mirrored_count(): int {
+        return $this->files_mirrored;
     }
 
     /**
