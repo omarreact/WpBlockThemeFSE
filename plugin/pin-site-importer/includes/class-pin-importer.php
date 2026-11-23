@@ -17,7 +17,7 @@ final class PIN_Site_Importer_Importer {
         $repo_url       = esc_url_raw( (string) ( $args['repo_url'] ?? '' ) );
         $branch         = sanitize_text_field( (string) ( $args['branch'] ?? '' ) );
         $token          = sanitize_text_field( (string) ( $args['token'] ?? '' ) );
-        $source_dir     = trim( str_replace( '\\\\', '/', sanitize_text_field( (string) ( $args['source_dir'] ?? '' ) ) ), '/' );
+        $source_dir     = trim( str_replace( chr( 92 ), '/', sanitize_text_field( (string) ( $args['source_dir'] ?? '' ) ) ), '/' );
         $post_status    = 'publish' === ( $args['post_status'] ?? '' ) ? 'publish' : 'draft';
         $import_media   = ! empty( $args['import_media'] );
         $import_css     = ! empty( $args['import_css'] );
@@ -67,7 +67,8 @@ final class PIN_Site_Importer_Importer {
             $repository['full_name'],
             $repository['branch'],
             $html_files,
-            $post_status
+            $post_status,
+            $source_dir
         );
 
         if ( is_wp_error( $page_map ) ) {
@@ -148,7 +149,7 @@ final class PIN_Site_Importer_Importer {
 
             $title = '' !== $converted['title']
                 ? $converted['title']
-                : $this->fallback_title( $path );
+                : $this->fallback_title( $path, $source_dir );
 
             $updated = wp_update_post(
                 array(
@@ -220,7 +221,7 @@ final class PIN_Site_Importer_Importer {
         }
 
         if ( $set_home ) {
-            $home_path = $this->find_home_path( $html_files );
+            $home_path = $this->find_home_path( $html_files, $source_dir );
 
             if ( $home_path && isset( $page_map[ $home_path ] ) ) {
                 update_option( 'show_on_front', 'page' );
@@ -238,7 +239,7 @@ final class PIN_Site_Importer_Importer {
      * @param string[] $paths
      * @return array<string,int>|WP_Error
      */
-    private function create_page_placeholders( string $repo, string $branch, array $paths, string $post_status ) {
+    private function create_page_placeholders( string $repo, string $branch, array $paths, string $post_status, string $source_dir = '' ) {
         $map = array();
 
         foreach ( $paths as $path ) {
@@ -275,8 +276,8 @@ final class PIN_Site_Importer_Importer {
                 array(
                     'post_type'    => 'page',
                     'post_status'  => 'draft',
-                    'post_title'   => $this->fallback_title( $path ),
-                    'post_name'    => $this->path_to_slug( $path ),
+                    'post_title'   => $this->fallback_title( $path, $source_dir ),
+                    'post_name'    => $this->path_to_slug( $path, $source_dir ),
                     'post_content' => '',
                 ),
                 true
@@ -583,7 +584,10 @@ final class PIN_Site_Importer_Importer {
         );
     }
 
-    private function fallback_title( string $path ): string {
+    private function fallback_title( string $path, string $source_dir = '' ): string {
+        if ( '' !== $source_dir && str_starts_with( $path, trailingslashit( $source_dir ) ) ) {
+            $path = substr( $path, strlen( trailingslashit( $source_dir ) ) );
+        }
         $basename = pathinfo( $path, PATHINFO_FILENAME );
 
         if ( 'index' === strtolower( $basename ) ) {
@@ -594,7 +598,10 @@ final class PIN_Site_Importer_Importer {
         return ucwords( str_replace( array( '-', '_' ), ' ', $basename ) );
     }
 
-    private function path_to_slug( string $path ): string {
+    private function path_to_slug( string $path, string $source_dir = '' ): string {
+        if ( '' !== $source_dir && str_starts_with( $path, trailingslashit( $source_dir ) ) ) {
+            $path = substr( $path, strlen( trailingslashit( $source_dir ) ) );
+        }
         $path = preg_replace( '/\.(?:html?|HTML?)$/', '', $path );
         $path = preg_replace( '~/index$~i', '', $path );
         $path = trim( (string) $path, '/' );
@@ -609,8 +616,10 @@ final class PIN_Site_Importer_Importer {
     /**
      * @param string[] $paths
      */
-    private function find_home_path( array $paths ): string {
-        foreach ( array( 'index.html', 'index.htm' ) as $candidate ) {
+    private function find_home_path( array $paths, string $source_dir = '' ): string {
+        $prefix = '' !== $source_dir ? trailingslashit( $source_dir ) : '';
+
+        foreach ( array( $prefix . 'index.html', $prefix . 'index.htm' ) as $candidate ) {
             if ( in_array( $candidate, $paths, true ) ) {
                 return $candidate;
             }
