@@ -196,21 +196,6 @@ final class PIN_Site_Importer_Importer {
             );
         }
 
-        if ( $mirror_assets ) {
-            $asset_mirror = $assets->mirror_tree_assets(
-                (array) $repository['tree'],
-                $source_dir
-            );
-            $result['assets_mirrored'] = (int) $asset_mirror['count'];
-
-            if ( ! empty( $asset_mirror['warnings'] ) ) {
-                $result['warnings'] = array_merge(
-                    $result['warnings'],
-                    (array) $asset_mirror['warnings']
-                );
-            }
-        }
-
         if ( count( $repository['html_files'] ) > self::MAX_PAGES ) {
             $result['warnings'][] = sprintf(
                 /* translators: %d: page cap. */
@@ -465,6 +450,61 @@ final class PIN_Site_Importer_Importer {
 
             ++$result['pages_imported'];
             $result['page_ids'][] = $post_id;
+        }
+
+        // Prioritize page/content conversion before bulk static mirroring.
+        // This prevents large asset trees from consuming remote request budget
+        // before the actual WordPress pages have been imported.
+        if ( $mirror_assets ) {
+            $asset_mirror = $assets->mirror_tree_assets(
+                (array) $repository['tree'],
+                $source_dir
+            );
+            $result['assets_mirrored'] = (int) $asset_mirror['count'];
+
+            if ( ! empty( $asset_mirror['warnings'] ) ) {
+                $result['warnings'] = array_merge(
+                    $result['warnings'],
+                    (array) $asset_mirror['warnings']
+                );
+            }
+        }
+
+        if ( 0 === (int) $result['pages_imported'] && (int) $result['pages_failed'] > 0 ) {
+            $first_warning = '';
+
+            foreach ( (array) $result['warnings'] as $warning ) {
+                if ( is_string( $warning ) && '' !== trim( $warning ) ) {
+                    $first_warning = trim( $warning );
+                    break;
+                }
+            }
+
+            $message = __(
+                'No pages could be imported. The import was stopped instead of reporting a successful completion.',
+                'pin-site-importer'
+            );
+
+            if ( '' !== $first_warning ) {
+                $message .= ' ' . sprintf(
+                    /* translators: %s: first import error. */
+                    __( 'First error: %s', 'pin-site-importer' ),
+                    $first_warning
+                );
+            }
+
+            if ( ! $github->is_authenticated() ) {
+                $message .= ' ' . __(
+                    'If GitHub API metadata is currently rate-limited on this server, retry with a GitHub token; public file bodies now use the non-API raw-content path.',
+                    'pin-site-importer'
+                );
+            }
+
+            return new WP_Error(
+                'pin_import_all_pages_failed',
+                $message,
+                $result
+            );
         }
 
         if ( is_array( $structured_json ) && $import_template_parts ) {
