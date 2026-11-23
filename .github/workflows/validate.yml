@@ -69,6 +69,11 @@ jobs:
         run: |
           wp-env run cli wp eval 'wp_set_current_user(1); do_action("admin_init");'
 
+      - name: Diagnose companion installation
+        run: |
+          wp-env run cli wp eval 'wp_set_current_user(1); echo "can_install=" . ( current_user_can("install_plugins") ? "yes" : "no" ) . PHP_EOL; echo "can_activate=" . ( current_user_can("activate_plugins") ? "yes" : "no" ) . PHP_EOL; echo "pending=" . get_option("pin_universal_fse_companion_install_pending", "none") . PHP_EOL; echo "error=" . get_option("pin_universal_fse_companion_install_error", "none") . PHP_EOL; echo "source=" . ( file_exists( get_template_directory() . "/plugin/pin-site-importer/pin-site-importer.php" ) ? "yes" : "no" ) . PHP_EOL; echo "target=" . ( file_exists( WP_PLUGIN_DIR . "/pin-site-importer/pin-site-importer.php" ) ? "yes" : "no" ) . PHP_EOL;'
+          wp-env run cli wp plugin list
+
       - name: Verify companion plugin
         run: wp-env run cli wp plugin is-active pin-site-importer
 
