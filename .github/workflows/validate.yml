@@ -29,6 +29,11 @@ jobs:
           python -m json.tool theme.json >/dev/null
           find styles -type f -name '*.json' -print0 | xargs -0 -n1 python -m json.tool
 
+      - name: Validate Structured Build tooling
+        run: |
+          python -m py_compile scripts/build-structured-site.py tests/test-structured-build.py
+          python tests/test-structured-build.py
+
       - name: Verify required theme and plugin files
         run: |
           test -f style.css
@@ -42,11 +47,46 @@ jobs:
           test -f plugin/pin-site-importer/includes/class-pin-importer.php
           test -f plugin/pin-site-importer/includes/class-pin-admin.php
           test -f inc/companion-plugin-installer.php
+          test -f scripts/build-structured-site.py
+          test -f scripts/structured-theme-runtime.php
+          test -f tests/wp-structured-build.php
+          test -f tests/test-structured-build.py
+          test -f docs/structured-build-mode.md
 
       - name: Verify release versions
         run: |
-          grep -q "Version: 0.3.3" style.css
-          grep -q "Version: 0.3.3" plugin/pin-site-importer/pin-site-importer.php
+          grep -q "Version: 0.4.1" style.css
+          grep -q "Version: 0.4.1" plugin/pin-site-importer/pin-site-importer.php
+
+  structured-build-meta-gray-label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PIN Universal FSE
+        uses: actions/checkout@v5
+
+      - name: Checkout real Meta Grey Label structured source
+        uses: actions/checkout@v5
+        with:
+          repository: omarreact/meta-gray-label
+          ref: e34ac92505549348ac4e73009d6a0805a736da53
+          path: build-source/meta-gray-label
+
+      - name: Build deterministic Meta Grey Label WordPress artifacts
+        run: python scripts/build-structured-site.py --source-root build-source/meta-gray-label --out-dir build/meta-gray-label
+
+      - name: Verify 52-page real-source artifact
+        run: python scripts/verify-structured-build.py build/meta-gray-label --expected-pages 52 --expected-theme pin-site-meta-grey-label
+
+      - name: Upload real-source Structured Build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: meta-gray-label-structured-build
+          path: |
+            build/meta-gray-label/website.xml
+            build/meta-gray-label/pin-site-meta-grey-label.zip
+            build/meta-gray-label/pin-site-meta-grey-label/build-report.json
+          if-no-files-found: error
 
   wordpress-integration:
     runs-on: ubuntu-latest
@@ -55,48 +95,81 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Checkout real Meta Grey Label structured source
+        uses: actions/checkout@v5
+        with:
+          repository: omarreact/meta-gray-label
+          ref: e34ac92505549348ac4e73009d6a0805a736da53
+          path: build-source/meta-gray-label
+
+      - name: Build real Structured Build artifact for WordPress integration
+        run: python scripts/build-structured-site.py --source-root build-source/meta-gray-label --out-dir build/meta-gray-label
+
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
           node-version: '24'
           package-manager-cache: false
 
-      - name: Install wp-env
-        run: npm install --global @wordpress/env@10.0.2
-
       - name: Start WordPress
-        run: wp-env start
+        run: bash scripts/wordpress-test.sh start
 
       - name: Activate theme
-        run: wp-env run cli wp theme activate pin-universal-fse
+        run: bash scripts/wordpress-test.sh run cli wp theme activate pin-universal-fse
 
       - name: Trigger bundled companion installation
         run: |
-          wp-env run cli wp eval 'wp_set_current_user(1); do_action("admin_init");'
+          bash scripts/wordpress-test.sh run cli wp eval 'wp_set_current_user(1); do_action("admin_init");'
 
       - name: Diagnose companion installation
         run: |
-          wp-env run cli wp eval 'wp_set_current_user(1); echo "can_install=" . ( current_user_can("install_plugins") ? "yes" : "no" ) . PHP_EOL; echo "can_activate=" . ( current_user_can("activate_plugins") ? "yes" : "no" ) . PHP_EOL; echo "pending=" . get_option("pin_universal_fse_companion_install_pending", "none") . PHP_EOL; echo "error=" . get_option("pin_universal_fse_companion_install_error", "none") . PHP_EOL; echo "source=" . ( file_exists( get_template_directory() . "/plugin/pin-site-importer/pin-site-importer.php" ) ? "yes" : "no" ) . PHP_EOL; echo "target=" . ( file_exists( WP_PLUGIN_DIR . "/pin-site-importer/pin-site-importer.php" ) ? "yes" : "no" ) . PHP_EOL;'
-          wp-env run cli wp plugin list
+          bash scripts/wordpress-test.sh run cli wp eval 'wp_set_current_user(1); echo "can_install=" . ( current_user_can("install_plugins") ? "yes" : "no" ) . PHP_EOL; echo "can_activate=" . ( current_user_can("activate_plugins") ? "yes" : "no" ) . PHP_EOL; echo "pending=" . get_option("pin_universal_fse_companion_install_pending", "none") . PHP_EOL; echo "error=" . get_option("pin_universal_fse_companion_install_error", "none") . PHP_EOL; echo "source=" . ( file_exists( get_template_directory() . "/plugin/pin-site-importer/pin-site-importer.php" ) ? "yes" : "no" ) . PHP_EOL; echo "target=" . ( file_exists( WP_PLUGIN_DIR . "/pin-site-importer/pin-site-importer.php" ) ? "yes" : "no" ) . PHP_EOL;'
+          bash scripts/wordpress-test.sh run cli wp plugin list
 
       - name: Verify companion plugin
-        run: wp-env run cli wp plugin is-active pin-site-importer
+        run: bash scripts/wordpress-test.sh run cli wp plugin is-active pin-site-importer
 
       - name: Configure end-to-end GitHub fixture
         env:
           PIN_SMOKE_GITHUB_TOKEN: ${{ github.token }}
         run: |
           SOURCE_BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
-          wp-env run cli wp option update pin_smoke_source_repo "https://github.com/${GITHUB_REPOSITORY}"
-          wp-env run cli wp option update pin_smoke_source_branch "${SOURCE_BRANCH}"
-          wp-env run cli wp option update pin_smoke_github_token "${PIN_SMOKE_GITHUB_TOKEN}"
+          bash scripts/wordpress-test.sh run cli wp option update pin_smoke_source_repo "https://github.com/${GITHUB_REPOSITORY}"
+          bash scripts/wordpress-test.sh run cli wp option update pin_smoke_source_branch "${SOURCE_BRANCH}"
+          bash scripts/wordpress-test.sh run cli wp option update pin_smoke_github_token "${PIN_SMOKE_GITHUB_TOKEN}"
 
       - name: Run WordPress smoke test
-        run: wp-env run cli wp eval-file wp-content/themes/pin-universal-fse/tests/wp-smoke.php
+        run: bash scripts/wordpress-test.sh run cli wp eval-file wp-content/themes/pin-universal-fse/tests/wp-smoke.php
+
+      - name: Import real Structured Build WXR into fresh WordPress state
+        run: |
+          bash scripts/wordpress-test.sh run cli wp eval 'foreach ( get_posts( array( "post_type" => "page", "post_status" => "any", "numberposts" => -1, "fields" => "ids" ) ) as $id ) { wp_delete_post( (int) $id, true ); }'
+          bash scripts/wordpress-test.sh run cli wp theme install /var/www/html/wp-content/themes/pin-universal-fse/build/meta-gray-label/pin-site-meta-grey-label.zip --force --activate
+          bash scripts/wordpress-test.sh run cli wp plugin install wordpress-importer --activate
+          bash scripts/wordpress-test.sh run cli wp import /var/www/html/wp-content/themes/pin-universal-fse/build/meta-gray-label/website.xml --authors=create
+          bash scripts/wordpress-test.sh run cli wp eval '$pages = get_posts( array( "post_type" => "page", "post_status" => "publish", "numberposts" => -1, "fields" => "ids" ) ); if ( 52 !== count( $pages ) ) { throw new Exception( "Expected 52 published pages; got " . count( $pages ) ); } $home = get_page_by_path( "home", OBJECT, "page" ); if ( ! $home ) { throw new Exception( "Generated Home page missing after WXR import." ); } update_option( "show_on_front", "page" ); update_option( "page_on_front", (int) $home->ID ); global $wp_rewrite; $wp_rewrite->set_permalink_structure( "/%postname%/" ); $wp_rewrite->flush_rules( true ); echo "structured-pages=52 home=" . $home->ID . PHP_EOL;'
+          bash scripts/wordpress-test.sh run cli wp theme status pin-site-meta-grey-label
+          curl --fail --silent --show-error http://localhost:8888/ > /tmp/pin-structured-home.html
+          grep -q 'wp-content/themes/pin-site-meta-grey-label/source/' /tmp/pin-structured-home.html
+          if grep -q 'pin-site-importer/' /tmp/pin-structured-home.html; then
+            echo "Structured Build homepage must not depend on PIN Site Importer upload paths."
+            exit 1
+          fi
+
+      - name: Validate generated frontend and editor behavior
+        run: bash scripts/wordpress-test.sh run cli wp eval-file wp-content/themes/pin-universal-fse/tests/wp-structured-build.php
+
+      - name: Export generated block content and core script dependencies
+        run: bash scripts/wordpress-test.sh run cli wp eval-file wp-content/themes/pin-universal-fse/tests/gutenberg/export-input.php
+
+      - name: Verify Gutenberg save compatibility
+        run: |
+          npm ci --prefix tests/gutenberg --ignore-scripts --no-fund --no-audit
+          node tests/gutenberg/validate.cjs build/gutenberg-input.json
 
       - name: Stop WordPress
         if: always()
-        run: command -v wp-env >/dev/null 2>&1 && wp-env stop || true
+        run: bash scripts/wordpress-test.sh stop
 
 
   package:
@@ -106,6 +179,7 @@ jobs:
     needs:
       - validate
       - wordpress-integration
+      - structured-build-meta-gray-label
     steps:
       - name: Checkout
         uses: actions/checkout@v5

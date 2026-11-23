@@ -14,6 +14,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
     private string $branch;
     private string $source_path;
     private string $source_root;
+    private bool $preserve_chrome;
     /** @var array<string,string> */
     private array $inline_css_rules = array();
 
@@ -27,8 +28,10 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         string $repo,
         string $branch,
         string $source_path,
-        string $source_root = ''
+        string $source_root = '',
+        bool $preserve_chrome = false
     ) {
+        $this->preserve_chrome = $preserve_chrome;
         $this->github      = $github;
         $this->page_map    = $page_map;
         $this->owner       = $owner;
@@ -109,7 +112,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         $header_node = $this->find_template_part_node( $xpath, 'header' );
         $footer_node = $this->find_template_part_node( $xpath, 'footer' );
 
-        if ( $header_node instanceof DOMElement ) {
+        if ( ! $this->preserve_chrome && $header_node instanceof DOMElement ) {
             $header_content = $this->node_to_block( $header_node, $images );
 
             if ( $header_node->parentNode ) {
@@ -117,7 +120,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             }
         }
 
-        if ( $footer_node instanceof DOMElement ) {
+        if ( ! $this->preserve_chrome && $footer_node instanceof DOMElement ) {
             $footer_content = $this->node_to_block( $footer_node, $images );
 
             if ( $footer_node->parentNode ) {
@@ -131,7 +134,18 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             }
         }
 
+        $html_attributes = array();
+        $html_node = $xpath->query( '//html' )->item( 0 );
+        if ( $html_node instanceof DOMElement ) {
+            foreach ( $html_node->attributes as $attribute ) {
+                if ( preg_match( '/^(?:data-[a-z0-9_-]+|class|id)$/', $attribute->nodeName ) ) {
+                    $html_attributes[ $attribute->nodeName ] = sanitize_text_field( $attribute->nodeValue );
+                }
+            }
+        }
         return array(
+            'body_class' => $body instanceof DOMElement ? sanitize_text_field( $body->getAttribute( 'class' ) ) : '',
+            'html_attributes' => $html_attributes,
             'title'          => $title,
             'content'        => trim( $content ),
             'header_content' => trim( $header_content ),

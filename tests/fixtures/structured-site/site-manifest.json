@@ -12,6 +12,12 @@
       "slug": "about",
       "title": "Structured About",
       "parent": "home"
+    },
+    {
+      "slug": "alternate",
+      "title": "Independent Layout",
+      "file": "alternate.html",
+      "template": "standalone"
     }
   ],
   "header": {

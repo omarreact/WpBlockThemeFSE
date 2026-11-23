@@ -141,6 +141,29 @@ foreach ( $parsed as $block ) {
 // Exercise WordPress persistence paths used by the importer without requiring
 // network access.
 $importer = new PIN_Site_Importer_Importer();
+
+$replace_method = new ReflectionMethod( $importer, 'replace_asset_references' );
+$replace_method->setAccessible( true );
+$remote_asset   = 'https://raw.githubusercontent.com/example/site/main/assets/icon.svg';
+$original_asset = '/assets/icon.svg';
+$local_asset    = 'https://example.test/wp-content/uploads/pin-site-importer/abc123/assets/icon.svg';
+$replaced_assets = $replace_method->invoke(
+    $importer,
+    '<img src="' . $remote_asset . '"><img src="' . $original_asset . '">',
+    $original_asset,
+    $remote_asset,
+    $local_asset
+);
+pin_smoke_assert(
+    2 === substr_count( $replaced_assets, $local_asset ),
+    'Asset replacement did not rewrite both source references exactly once.'
+);
+pin_smoke_assert(
+    ! str_contains( $replaced_assets, 'abc123https://' )
+        && ! str_contains( $replaced_assets, $local_asset . $local_asset ),
+    'Asset replacement recursively rewrote a newly localized URL.'
+);
+
 $page_method = new ReflectionMethod( $importer, 'create_page_placeholders' );
 $page_method->setAccessible( true );
 
@@ -378,7 +401,7 @@ pin_smoke_assert(
     'End-to-end import did not rewrite an internal page link.'
 );
 pin_smoke_assert(
-    str_contains( $home_content, '/wp-content/uploads/' )
+    str_contains( $home_content, (string) wp_upload_dir()['baseurl'] . '/' )
         && ! str_contains( $home_content, 'raw.githubusercontent.com' ),
     'End-to-end media import did not replace the repository image with a local Media Library URL.'
 );
@@ -494,7 +517,7 @@ $structured = $importer->run(
 pin_smoke_assert( ! is_wp_error( $structured ), is_wp_error( $structured ) ? 'API-free structured JSON import failed: ' . $structured->get_error_message() : 'Structured JSON import failed.' );
 pin_smoke_assert( 'json' === ( $structured['source_mode'] ?? '' ), 'Structured JSON mode was not selected.' );
 pin_smoke_assert( 'Structured JSON' === ( $structured['technology'] ?? '' ), 'API-free structured import did not bypass repository technology discovery.' );
-pin_smoke_assert( 2 === (int) ( $structured['pages_imported'] ?? 0 ), 'Structured JSON pages were not imported.' );
+pin_smoke_assert( 3 === (int) ( $structured['pages_imported'] ?? 0 ), 'Structured JSON pages were not imported.' );
 pin_smoke_assert( ! empty( $structured['template_parts']['header'] ) && ! empty( $structured['template_parts']['footer'] ), 'Structured header/footer were not imported as FSE template parts.' );
 $structured_home = get_posts(
     array(
@@ -515,6 +538,12 @@ pin_smoke_assert(
     'Structured Fixture Home' === (string) get_post_meta( (int) $structured_home[0], '_pin_import_seo_title', true ),
     'Structured SEO metadata was not persisted.'
 );
+$alternate = get_page_by_path( 'alternate', OBJECT, 'page' );
+pin_smoke_assert( $alternate instanceof WP_Post, 'Independent structured page is missing.' );
+pin_smoke_assert( 'pin-standalone' === get_post_meta( $alternate->ID, '_wp_page_template', true ), 'Independent page template missing.' );
+pin_smoke_assert( str_contains( $alternate->post_content, 'alternate-header' ) && str_contains( $alternate->post_content, 'alternate-footer' ), 'Independent page chrome was removed.' );
+pin_smoke_assert( 'alternate-body' === get_post_meta( $alternate->ID, '_pin_import_body_class', true ), 'Source body class was lost.' );
+pin_smoke_assert( 'dark' === ( get_post_meta( $alternate->ID, '_pin_import_html_attributes', true )['data-source-theme'] ?? '' ), 'Source HTML data attributes were lost.' );
 foreach ( (array) $structured['page_ids'] as $structured_page_id ) {
     wp_delete_post( (int) $structured_page_id, true );
 }

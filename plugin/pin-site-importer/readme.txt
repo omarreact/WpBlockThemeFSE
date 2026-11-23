@@ -2,7 +2,7 @@
 Contributors: pincodeit
 Requires at least: 6.6
 Requires PHP: 8.1
-Stable tag: 0.3.3
+Stable tag: 0.4.1
 License: GPL-2.0-or-later
 
 GitHub/static-HTML to native WordPress Gutenberg importer bundled with
@@ -78,3 +78,8 @@ through the same Gutenberg/FSE pipeline used by HTML imports.
 * Mirror repository SVGs and host-rejected safe image MIME types as static assets without weakening WordPress upload permissions.
 * Raise referenced CSS fetch/aggregate safety limits for production static sites.
 * Count referenced static mirrors and deduplicate repeated import warnings.
+
+
+= 0.4.0 =
+* Make repository asset localization idempotent by replacing source references in one non-recursive pass.
+* Add PIN Structured Build Mode tooling for deterministic FSE theme + native WXR generation outside WordPress runtime.
