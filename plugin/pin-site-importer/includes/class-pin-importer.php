@@ -459,6 +459,44 @@ final class PIN_Site_Importer_Importer {
             $result['page_ids'][] = $post_id;
         }
 
+        if ( is_array( $structured_json ) && $import_template_parts ) {
+            $fragment_html = '<!doctype html><html><body>';
+
+            if ( ! empty( $structured_json['header_html'] ) ) {
+                $fragment_html .= '<header>' . (string) $structured_json['header_html'] . '</header>';
+            }
+
+            if ( ! empty( $structured_json['footer_html'] ) ) {
+                $fragment_html .= '<footer>' . (string) $structured_json['footer_html'] . '</footer>';
+            }
+
+            $fragment_html .= '</body></html>';
+
+            if ( ! empty( $structured_json['header_html'] ) || ! empty( $structured_json['footer_html'] ) ) {
+                $fragment_converter = new PIN_Site_Importer_HTML_To_Blocks(
+                    $github,
+                    $page_map,
+                    $repository['owner'],
+                    $repository['repo'],
+                    $repository['branch'],
+                    '__json__/global.html',
+                    $source_dir
+                );
+                $fragment_converted = $fragment_converter->convert( $fragment_html );
+
+                if ( is_wp_error( $fragment_converted ) ) {
+                    $result['warnings'][] = $fragment_converted->get_error_message();
+                } else {
+                    if ( ! empty( $fragment_converted['header_content'] ) ) {
+                        $template_part_payload['header'] = (string) $fragment_converted['header_content'];
+                    }
+                    if ( ! empty( $fragment_converted['footer_content'] ) ) {
+                        $template_part_payload['footer'] = (string) $fragment_converted['footer_content'];
+                    }
+                }
+            }
+        }
+
         if ( $apply_global && (int) $result['pages_failed'] > 0 ) {
             $apply_global = false;
             $result['global_applied'] = false;
