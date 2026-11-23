@@ -41,11 +41,6 @@ done
 test -f "$THEME_DIR/plugin/pin-site-importer/pin-site-importer.php"
 test -f "$THEME_DIR/inc/companion-plugin-installer.php"
 
-(
-  cd "$BUILD_DIR"
-  zip -qr "$THEME_ZIP" pin-universal-fse
-)
-
 PLUGIN_BUILD="$BUILD_DIR/pin-site-importer"
 rm -rf "$PLUGIN_BUILD"
 cp -R "$ROOT_DIR/plugin/pin-site-importer" "$PLUGIN_BUILD"
@@ -53,6 +48,14 @@ cp -R "$ROOT_DIR/plugin/pin-site-importer" "$PLUGIN_BUILD"
 (
   cd "$BUILD_DIR"
   zip -qr "$PLUGIN_ZIP" pin-site-importer
+)
+
+mkdir -p "$THEME_DIR/bundled"
+cp "$PLUGIN_ZIP" "$THEME_DIR/bundled/pin-site-importer.zip"
+
+(
+  cd "$BUILD_DIR"
+  zip -qr "$THEME_ZIP" pin-universal-fse
 )
 
 echo "$THEME_ZIP"
