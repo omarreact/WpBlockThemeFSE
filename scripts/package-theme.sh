@@ -5,7 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/build/package"
 DIST_DIR="$ROOT_DIR/dist"
 THEME_DIR="$BUILD_DIR/pin-universal-fse"
-ZIP_FILE="$DIST_DIR/pin-universal-fse.zip"
+THEME_ZIP="$DIST_DIR/pin-universal-fse.zip"
+PLUGIN_ZIP="$DIST_DIR/pin-site-importer.zip"
 
 rm -rf "$BUILD_DIR" "$DIST_DIR"
 mkdir -p "$THEME_DIR" "$DIST_DIR"
@@ -42,7 +43,17 @@ test -f "$THEME_DIR/inc/companion-plugin-installer.php"
 
 (
   cd "$BUILD_DIR"
-  zip -qr "$ZIP_FILE" pin-universal-fse
+  zip -qr "$THEME_ZIP" pin-universal-fse
 )
 
-echo "$ZIP_FILE"
+PLUGIN_BUILD="$BUILD_DIR/pin-site-importer"
+rm -rf "$PLUGIN_BUILD"
+cp -R "$ROOT_DIR/plugin/pin-site-importer" "$PLUGIN_BUILD"
+
+(
+  cd "$BUILD_DIR"
+  zip -qr "$PLUGIN_ZIP" pin-site-importer
+)
+
+echo "$THEME_ZIP"
+echo "$PLUGIN_ZIP"
