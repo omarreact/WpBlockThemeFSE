@@ -94,9 +94,11 @@ final class PIN_Site_Importer_Admin {
                             <label><input type="checkbox" name="import_scripts" value="1" checked> <?php esc_html_e( 'Mirror and load repository JavaScript referenced by imported pages', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="mirror_assets" value="1" checked> <?php esc_html_e( 'Mirror safe static build assets/chunks/fonts into WordPress uploads', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="import_external_scripts" value="1"> <?php esc_html_e( 'Load external/CDN JavaScript (trusted repositories only)', 'pin-site-importer' ); ?></label><br>
-                            <label><input type="checkbox" name="set_home" value="1"> <?php esc_html_e( 'Set root index.html as the WordPress homepage', 'pin-site-importer' ); ?></label><br>
+                            <label><input type="checkbox" name="set_home" value="1"> <?php esc_html_e( 'Set root index.html as the WordPress homepage when applying globally', 'pin-site-importer' ); ?></label><br>
                             <label><input type="checkbox" name="create_navigation" value="1" checked> <?php esc_html_e( 'Create/update WordPress Navigation from imported pages', 'pin-site-importer' ); ?></label><br>
-                            <label><input type="checkbox" name="import_template_parts" value="1" checked> <?php esc_html_e( 'Import source header/footer as editable FSE template parts', 'pin-site-importer' ); ?></label>
+                            <label><input type="checkbox" name="import_template_parts" value="1" checked> <?php esc_html_e( 'Import source header/footer as editable FSE template parts', 'pin-site-importer' ); ?></label><br>
+                            <label><input type="checkbox" name="apply_global" value="1"> <strong><?php esc_html_e( 'Apply imported header/footer/navigation/homepage to the active site', 'pin-site-importer' ); ?></strong></label>
+                            <p class="description"><?php esc_html_e( 'Safety gate: this only takes effect when Imported page status is Publish. Leave unchecked while reviewing a draft import.', 'pin-site-importer' ); ?></p>
                         </td>
                     </tr>
                 </table>
@@ -165,6 +167,7 @@ final class PIN_Site_Importer_Admin {
                 'set_home'     => ! empty( $_POST['set_home'] ),
                 'create_navigation' => ! empty( $_POST['create_navigation'] ),
                 'import_template_parts' => ! empty( $_POST['import_template_parts'] ),
+                'apply_global' => ! empty( $_POST['apply_global'] ),
             )
         );
 
