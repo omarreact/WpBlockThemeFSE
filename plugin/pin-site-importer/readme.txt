@@ -2,25 +2,40 @@
 Contributors: pincodeit
 Requires at least: 6.6
 Requires PHP: 8.1
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 License: GPL-2.0-or-later
 
-Companion plugin for PIN Universal FSE.
+GitHub/static HTML to native WordPress Gutenberg importer bundled with
+PIN Universal FSE.
 
-== Description ==
+== Features ==
 
-This plugin owns import/conversion functionality so that imported site content and
-migration tools do not depend on the active WordPress theme.
+* GitHub repository URL, optional branch and temporary token support.
+* Optional static build folder such as out/ or dist/.
+* Static HTML page discovery.
+* HTML to Gutenberg core-block conversion.
+* Internal imported-page link rewriting.
+* Repository image sideload into Media Library.
+* Referenced CSS preservation per imported page.
+* Imported WordPress Navigation generation.
+* Optional imported index.html front-page assignment.
+* Re-import updates existing imported pages using source metadata.
+* Import result warnings and recent import history.
 
-The initial 0.1.0 package provides the companion-plugin installation foundation.
-The GitHub/HTML to Gutenberg conversion engine will be implemented here in later
-development phases.
+== Frameworks ==
+
+The importer consumes rendered/static HTML. Static sites work directly.
+Next.js/React/Vite/Angular projects must contain a static build/export output
+folder; dynamic application source by itself is not a rendered website.
 
 == Installation ==
 
-Normally no separate upload is required. PIN Universal FSE bundles this plugin and
-attempts to install and activate it on the first administrator request after the
-theme is activated.
+PIN Universal FSE bundles this plugin and installs/activates it after theme
+activation. If filesystem permissions block the automatic copy, the theme shows
+an administrator retry action.
 
-If the host blocks automatic filesystem writes, the theme displays an administrator
-notice with a retry action.
+== Security ==
+
+Import actions require administrator capabilities and nonces. GitHub access
+tokens are used only for the active request and are not stored. Remote requests
+use WordPress safe HTTP APIs.
