@@ -39,7 +39,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
     }
 
     /**
-     * @return array{title:string,content:string,header_content:string,footer_content:string,images:array<string,array{url:string,path:string}>,stylesheets:string[],external_stylesheets:string[],scripts:array<int,array<string,string>>,inline_css:string}|WP_Error
+     * @return array{title:string,content:string,header_content:string,footer_content:string,images:array<string,array{url:string,path:string}>,stylesheets:string[],external_stylesheets:string[],scripts:array<int,array<string,string>>,external_scripts:array<int,array<string,string>>,inline_css:string}|WP_Error
      */
     public function convert( string $html ) {
         if ( ! class_exists( 'DOMDocument' ) ) {
@@ -139,7 +139,8 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             'images'      => $images,
             'stylesheets'          => $this->extract_stylesheets( $xpath ),
             'external_stylesheets' => $this->extract_external_stylesheets( $xpath ),
-            'scripts'     => $this->extract_scripts( $xpath ),
+            'scripts'              => $this->extract_scripts( $xpath ),
+            'external_scripts'     => $this->extract_external_scripts( $xpath ),
             'inline_css'  => implode( "\n", array_values( $this->inline_css_rules ) ),
         );
     }
@@ -600,6 +601,59 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         }
 
         return array_values( array_unique( $stylesheets ) );
+    }
+
+    /**
+     * @return array<int,array<string,string>>
+     */
+    private function extract_external_scripts( DOMXPath $xpath ): array {
+        $scripts = array();
+
+        foreach ( $xpath->query( '//script[@src]' ) as $script ) {
+            if ( ! $script instanceof DOMElement ) {
+                continue;
+            }
+
+            $src = trim( $script->getAttribute( 'src' ) );
+
+            if ( str_starts_with( $src, '//' ) ) {
+                $src = 'https:' . $src;
+            }
+
+            if ( ! preg_match( '~^https?://~i', $src ) ) {
+                continue;
+            }
+
+            $url = esc_url_raw( $src, array( 'http', 'https' ) );
+
+            if ( '' === $url ) {
+                continue;
+            }
+
+            $type = strtolower( trim( $script->getAttribute( 'type' ) ) );
+            $strategy = '';
+
+            if ( $script->hasAttribute( 'async' ) ) {
+                $strategy = 'async';
+            } elseif ( $script->hasAttribute( 'defer' ) ) {
+                $strategy = 'defer';
+            }
+
+            $scripts[] = array(
+                'url'      => $url,
+                'type'     => 'module' === $type ? 'module' : 'classic',
+                'strategy' => $strategy,
+            );
+        }
+
+        $unique = array();
+
+        foreach ( $scripts as $script ) {
+            $key = $script['url'] . '|' . $script['type'] . '|' . $script['strategy'];
+            $unique[ $key ] = $script;
+        }
+
+        return array_values( $unique );
     }
 
     /**
