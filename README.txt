@@ -112,7 +112,9 @@ real hosting filesystem permissions, PHP extensions, outbound GitHub access,
 Media Library limits and server resource limits vary by provider.
 
 CURRENT DEVELOPMENT
-Structured Build Mode v1 is developed on feat/structured-build-mode-v1.
+Structured Build Mode is available in scripts/build-structured-site.py.
+See docs/structured-build-mode.md for source contracts, build/install steps,
+portability, validation and known limitations.
 main, distribution packages and production sites remain unchanged until an
 explicit merge/release decision.
 
@@ -130,3 +132,8 @@ No production site or domain is changed by this repository alone.
 standalone generated FSE theme ZIP plus native WordPress WXR. Runtime GitHub/
 HTML importing remains available as the universal fallback. Asset localization
 is also made non-recursive so re-importing cannot prefix already-localized URLs.
+
+Structured Build hardening: portable frontend/editor URLs; ordered per-page
+assets; structured sections; preserved semantics, anchors and rich HTML;
+Unicode routes; explicit hierarchy/path limits; staged builds; build reports;
+and Gutenberg core save compatibility checks.

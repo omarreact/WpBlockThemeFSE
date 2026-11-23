@@ -401,7 +401,7 @@ pin_smoke_assert(
     'End-to-end import did not rewrite an internal page link.'
 );
 pin_smoke_assert(
-    str_contains( $home_content, '/wp-content/uploads/' )
+    str_contains( $home_content, (string) wp_upload_dir()['baseurl'] . '/' )
         && ! str_contains( $home_content, 'raw.githubusercontent.com' ),
     'End-to-end media import did not replace the repository image with a local Media Library URL.'
 );
