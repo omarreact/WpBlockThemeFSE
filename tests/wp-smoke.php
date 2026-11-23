@@ -205,4 +205,113 @@ wp_delete_post( (int) $part_id, true );
 wp_delete_post( (int) $navigation_id, true );
 delete_option( 'pin_site_importer_navigation_id' );
 
+// Real GitHub -> WordPress end-to-end import using the repository fixture.
+$source_repo   = (string) get_option( 'pin_smoke_source_repo', '' );
+$source_branch = (string) get_option( 'pin_smoke_source_branch', '' );
+
+pin_smoke_assert( '' !== $source_repo && '' !== $source_branch, 'End-to-end fixture source was not configured.' );
+
+$e2e = $importer->run(
+    array(
+        'repo_url'                => $source_repo,
+        'branch'                  => $source_branch,
+        'source_dir'              => 'tests/fixtures/static-site',
+        'post_status'             => 'draft',
+        'import_media'            => false,
+        'import_css'              => true,
+        'import_scripts'          => true,
+        'mirror_assets'           => true,
+        'import_external_scripts' => false,
+        'set_home'                => false,
+        'create_navigation'       => true,
+        'import_template_parts'   => true,
+    )
+);
+
+pin_smoke_assert(
+    ! is_wp_error( $e2e ),
+    is_wp_error( $e2e ) ? 'End-to-end fixture import failed: ' . $e2e->get_error_message() : 'End-to-end fixture import failed.'
+);
+pin_smoke_assert( 3 === (int) $e2e['pages_imported'], 'Fixture did not import exactly three pages.' );
+pin_smoke_assert( 0 === (int) $e2e['pages_failed'], 'Fixture import reported failed pages.' );
+pin_smoke_assert( (int) $e2e['assets_mirrored'] >= 3, 'Fixture static assets were not mirrored.' );
+pin_smoke_assert(
+    ! empty( $e2e['template_parts']['header'] ) && ! empty( $e2e['template_parts']['footer'] ),
+    'Fixture header/footer were not persisted as FSE template parts.'
+);
+pin_smoke_assert( ! empty( $e2e['navigation_id'] ), 'Fixture WordPress Navigation was not created.' );
+
+$about_ids = get_posts(
+    array(
+        'post_type'      => 'page',
+        'post_status'    => 'any',
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+        'meta_key'       => '_pin_import_source_path',
+        'meta_value'     => 'tests/fixtures/static-site/about/index.html',
+    )
+);
+$team_ids = get_posts(
+    array(
+        'post_type'      => 'page',
+        'post_status'    => 'any',
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+        'meta_key'       => '_pin_import_source_path',
+        'meta_value'     => 'tests/fixtures/static-site/about/team.html',
+    )
+);
+$home_ids = get_posts(
+    array(
+        'post_type'      => 'page',
+        'post_status'    => 'any',
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+        'meta_key'       => '_pin_import_source_path',
+        'meta_value'     => 'tests/fixtures/static-site/index.html',
+    )
+);
+
+pin_smoke_assert( ! empty( $about_ids ) && ! empty( $team_ids ) && ! empty( $home_ids ), 'Imported fixture pages could not be queried by source metadata.' );
+$about_id = (int) $about_ids[0];
+$team_id  = (int) $team_ids[0];
+$home_id  = (int) $home_ids[0];
+
+pin_smoke_assert(
+    (int) get_post_field( 'post_parent', $team_id ) === $about_id,
+    'End-to-end import did not preserve nested page hierarchy.'
+);
+pin_smoke_assert(
+    str_contains( (string) get_post_field( 'post_content', $home_id ), get_permalink( $about_id ) ),
+    'End-to-end import did not rewrite an internal page link.'
+);
+pin_smoke_assert(
+    '' !== (string) get_post_meta( $home_id, '_pin_import_css', true ),
+    'End-to-end import did not preserve page CSS.'
+);
+pin_smoke_assert(
+    is_array( get_post_meta( $home_id, '_pin_import_scripts', true ) )
+        && ! empty( get_post_meta( $home_id, '_pin_import_scripts', true ) ),
+    'End-to-end import did not preserve local JavaScript.'
+);
+$external_css = get_post_meta( $home_id, '_pin_import_external_css', true );
+pin_smoke_assert(
+    is_array( $external_css )
+        && in_array( 'https://cdn.example.com/fixture.css', $external_css, true ),
+    'End-to-end import did not preserve external stylesheet metadata.'
+);
+
+foreach ( (array) $e2e['page_ids'] as $page_id ) {
+    wp_delete_post( (int) $page_id, true );
+}
+foreach ( (array) $e2e['template_parts'] as $template_part_id ) {
+    wp_delete_post( (int) $template_part_id, true );
+}
+if ( ! empty( $e2e['navigation_id'] ) ) {
+    wp_delete_post( (int) $e2e['navigation_id'], true );
+}
+delete_option( 'pin_site_importer_navigation_id' );
+delete_option( 'pin_smoke_source_repo' );
+delete_option( 'pin_smoke_source_branch' );
+
 fwrite( STDOUT, "PIN Universal FSE WordPress smoke test passed.\n" );
