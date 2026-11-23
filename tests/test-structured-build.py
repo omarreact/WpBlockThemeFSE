@@ -37,9 +37,17 @@ with tempfile.TemporaryDirectory(prefix="pin-structured-test-") as temp:
     assert "<!-- wp:heading" in wxr and "<!-- wp:image" in wxr
     assert f"/wp-content/themes/{theme_slug}/source/assets/logo.svg" in wxr
     assert "pin-site-importer/pin-site-importer" not in wxr
-    with zipfile.ZipFile(output/f"{theme_slug}.zip") as archive:
+    zip_file=output/f"{theme_slug}.zip"
+    with zipfile.ZipFile(zip_file) as archive:
         names=set(archive.namelist())
         assert f"{theme_slug}/style.css" in names
         assert f"{theme_slug}/source/assets/site.css" in names
         assert f"{theme_slug}/source/assets/site.js" in names
-print("PASS: structured build generator emits deterministic FSE theme + WXR")
+    first_zip=zip_file.read_bytes()
+    first_wxr=(output/"website.xml").read_bytes()
+    completed_again=subprocess.run([sys.executable,str(GENERATOR),"--source-root",str(source),"--out-dir",str(output)],check=True,text=True,capture_output=True)
+    result_again=json.loads(completed_again.stdout)
+    assert result_again["pages"]==2
+    assert first_zip==zip_file.read_bytes(), "Theme ZIP changed across identical builds"
+    assert first_wxr==(output/"website.xml").read_bytes(), "WXR changed across identical builds"
+print("PASS: structured build generator emits byte-stable FSE theme + WXR")
