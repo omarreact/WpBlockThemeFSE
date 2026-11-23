@@ -261,8 +261,8 @@ final class PIN_Site_Importer_Admin {
         $post_id = get_queried_object_id();
         $scripts = get_post_meta( $post_id, '_pin_import_scripts', true );
 
-        if ( ! is_array( $scripts ) || ! $scripts ) {
-            return;
+        if ( ! is_array( $scripts ) ) {
+            $scripts = array();
         }
 
         foreach ( $scripts as $index => $script ) {
