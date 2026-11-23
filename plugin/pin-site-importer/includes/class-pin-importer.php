@@ -899,8 +899,9 @@ final class PIN_Site_Importer_Importer {
                 continue;
             }
 
-            $remote_url = esc_url_raw( (string) ( $descriptor['url'] ?? '' ) );
-            $repo_path  = (string) ( $descriptor['path'] ?? '' );
+            $remote_url     = esc_url_raw( (string) ( $descriptor['url'] ?? '' ) );
+            $repo_path      = (string) ( $descriptor['path'] ?? '' );
+            $attachment_url = '';
 
             if ( '' === $remote_url ) {
                 continue;
@@ -918,7 +919,28 @@ final class PIN_Site_Importer_Importer {
                 . ':'
                 . $repo_path;
 
-            $existing = get_posts(
+            $extension = strtolower( pathinfo( $repo_path, PATHINFO_EXTENSION ) );
+
+            // Many WordPress hosts intentionally block SVG uploads. Preserve
+            // repository SVGs by mirroring them as static assets rather than
+            // changing the site's global upload MIME policy.
+            if ( 'svg' === $extension ) {
+                $mirrored = $assets->mirror( $repo_path, 4194304 );
+
+                if ( is_wp_error( $mirrored ) ) {
+                    $warnings[] = sprintf(
+                        /* translators: 1: repository path, 2: error message. */
+                        __( 'SVG mirror failed for %1$s: %2$s', 'pin-site-importer' ),
+                        $repo_path,
+                        $mirrored->get_error_message()
+                    );
+                    continue;
+                }
+
+                $attachment_url = $mirrored;
+            }
+
+            $existing = 'svg' === $extension ? array() : get_posts(
                 array(
                     'post_type'      => 'attachment',
                     'post_status'    => 'inherit',
@@ -929,7 +951,9 @@ final class PIN_Site_Importer_Importer {
                 )
             );
 
-            if ( $existing ) {
+            if ( 'svg' === $extension ) {
+                // Static mirror already resolved above.
+            } elseif ( $existing ) {
                 $attachment_url = wp_get_attachment_url( (int) $existing[0] );
             } else {
                 $binary = $github->get_file(
@@ -984,19 +1008,29 @@ final class PIN_Site_Importer_Importer {
 
                 if ( is_wp_error( $attachment_id ) ) {
                     @unlink( $tmp ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-                    $warnings[] = sprintf(
-                        /* translators: 1: repository path, 2: error message. */
-                        __( 'Media Library import failed for %1$s: %2$s', 'pin-site-importer' ),
-                        $repo_path,
-                        $attachment_id->get_error_message()
-                    );
-                    continue;
-                }
 
-                update_post_meta( (int) $attachment_id, '_pin_import_repo_asset', $asset_key );
-                update_post_meta( (int) $attachment_id, '_source_url', $remote_url );
-                $attachment_url = wp_get_attachment_url( (int) $attachment_id );
-                ++$count;
+                    // Managed hosts can reject otherwise safe image MIME types.
+                    // Fall back to the static mirror instead of breaking the
+                    // imported design or weakening global upload permissions.
+                    $mirrored = $assets->mirror( $repo_path, 10485760 );
+
+                    if ( is_wp_error( $mirrored ) ) {
+                        $warnings[] = sprintf(
+                            /* translators: 1: repository path, 2: error message. */
+                            __( 'Media Library import failed for %1$s: %2$s', 'pin-site-importer' ),
+                            $repo_path,
+                            $attachment_id->get_error_message()
+                        );
+                        continue;
+                    }
+
+                    $attachment_url = $mirrored;
+                } else {
+                    update_post_meta( (int) $attachment_id, '_pin_import_repo_asset', $asset_key );
+                    update_post_meta( (int) $attachment_id, '_source_url', $remote_url );
+                    $attachment_url = wp_get_attachment_url( (int) $attachment_id );
+                    ++$count;
+                }
             }
 
             if ( $attachment_url ) {
