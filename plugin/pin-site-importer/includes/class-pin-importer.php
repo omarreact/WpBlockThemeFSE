@@ -106,8 +106,7 @@ final class PIN_Site_Importer_Importer {
                 $repository['owner'],
                 $repository['repo'],
                 $repository['branch'],
-                $path,
-                $source_dir
+                $path
             );
 
             if ( is_wp_error( $html ) ) {
@@ -122,7 +121,8 @@ final class PIN_Site_Importer_Importer {
                 $repository['owner'],
                 $repository['repo'],
                 $repository['branch'],
-                $path
+                $path,
+                $source_dir
             );
 
             $converted = $converter->convert( $html );
