@@ -41,7 +41,8 @@ $converter = new PIN_Site_Importer_HTML_To_Blocks(
     'example',
     'site',
     'main',
-    'index.html'
+    'index.html',
+    ''
 );
 
 $result = $converter->convert(
