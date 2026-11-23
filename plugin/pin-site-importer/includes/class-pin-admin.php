@@ -205,6 +205,10 @@ final class PIN_Site_Importer_Admin {
             return $parsed_block;
         }
 
+        if ( ! empty( $parsed_block['innerBlocks'] ) ) {
+            return $parsed_block;
+        }
+
         $theme = wp_get_theme();
 
         if ( 'pin-universal-fse' !== $theme->get( 'TextDomain' ) ) {
