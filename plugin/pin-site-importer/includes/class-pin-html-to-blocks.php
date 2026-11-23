@@ -39,7 +39,7 @@ final class PIN_Site_Importer_HTML_To_Blocks {
     }
 
     /**
-     * @return array{title:string,content:string,header_content:string,footer_content:string,images:array<string,array{url:string,path:string}>,stylesheets:string[],external_stylesheets:string[],scripts:array<int,array<string,string>>,external_scripts:array<int,array<string,string>>,inline_css:string}|WP_Error
+     * @return array{title:string,content:string,header_content:string,footer_content:string,images:array<string,array{url:string,path:string}>,stylesheets:string[],external_stylesheets:string[],scripts:array<int,array<string,string>>,external_scripts:array<int,array<string,string>>,inline_css:string,embedded_css:string}|WP_Error
      */
     public function convert( string $html ) {
         if ( ! class_exists( 'DOMDocument' ) ) {
@@ -141,7 +141,8 @@ final class PIN_Site_Importer_HTML_To_Blocks {
             'external_stylesheets' => $this->extract_external_stylesheets( $xpath ),
             'scripts'              => $this->extract_scripts( $xpath ),
             'external_scripts'     => $this->extract_external_scripts( $xpath ),
-            'inline_css'  => implode( "\n", array_values( $this->inline_css_rules ) ),
+            'inline_css'          => implode( "\n", array_values( $this->inline_css_rules ) ),
+            'embedded_css'        => $this->extract_embedded_css( $xpath ),
         );
     }
 
@@ -531,6 +532,20 @@ final class PIN_Site_Importer_HTML_To_Blocks {
         }
 
         return $href . $query . $anchor;
+    }
+
+    private function extract_embedded_css( DOMXPath $xpath ): string {
+        $chunks = array();
+
+        foreach ( $xpath->query( '//style' ) as $style ) {
+            $css = trim( (string) $style->textContent );
+
+            if ( '' !== $css ) {
+                $chunks[] = $css;
+            }
+        }
+
+        return trim( implode( "\n", $chunks ) );
     }
 
     /**
