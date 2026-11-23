@@ -177,6 +177,10 @@ function pin_universal_fse_install_companion() {
         if ( is_wp_error( $copied ) ) {
             return $copied;
         }
+
+        // The plugin directory changed during this request. Refresh WordPress'
+        // plugin discovery cache before validating/activating the new copy.
+        wp_clean_plugins_cache( true );
     }
 
     if ( ! is_plugin_active( $plugin_file ) ) {
