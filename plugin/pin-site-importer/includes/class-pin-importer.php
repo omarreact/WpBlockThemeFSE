@@ -385,6 +385,35 @@ final class PIN_Site_Importer_Importer {
             $map[ $path ] = (int) $post_id;
         }
 
+        foreach ( $paths as $path ) {
+            $post_id = $map[ $path ] ?? 0;
+
+            if ( ! $post_id ) {
+                continue;
+            }
+
+            $parent_path = $this->find_parent_source_page( $path, $paths, $source_dir );
+            $parent_id   = $parent_path && isset( $map[ $parent_path ] )
+                ? (int) $map[ $parent_path ]
+                : 0;
+
+            $relative = $this->relative_source_path( $path, $source_dir );
+            $basename = pathinfo( $relative, PATHINFO_FILENAME );
+            $slug     = $this->path_to_slug( $path, $source_dir );
+
+            if ( $parent_id && 'index' !== strtolower( $basename ) ) {
+                $slug = sanitize_title( $basename );
+            }
+
+            wp_update_post(
+                array(
+                    'ID'          => $post_id,
+                    'post_parent' => $parent_id,
+                    'post_name'   => $slug,
+                )
+            );
+        }
+
         return $map;
     }
 
@@ -836,10 +865,61 @@ final class PIN_Site_Importer_Importer {
         );
     }
 
-    private function fallback_title( string $path, string $source_dir = '' ): string {
-        if ( '' !== $source_dir && str_starts_with( $path, trailingslashit( $source_dir ) ) ) {
-            $path = substr( $path, strlen( trailingslashit( $source_dir ) ) );
+    /**
+     * Find the closest imported folder index page to use as a WordPress parent.
+     *
+     * @param string[] $paths
+     */
+    private function find_parent_source_page(
+        string $path,
+        array $paths,
+        string $source_dir = ''
+    ): string {
+        $relative = $this->relative_source_path( $path, $source_dir );
+        $directory = dirname( $relative );
+        $filename  = strtolower( pathinfo( $relative, PATHINFO_BASENAME ) );
+
+        if ( in_array( $filename, array( 'index.html', 'index.htm' ), true ) ) {
+            $directory = dirname( $directory );
         }
+
+        while ( '.' !== $directory && '' !== $directory && '/' !== $directory ) {
+            $prefix = '' !== $source_dir ? trailingslashit( $source_dir ) : '';
+
+            foreach ( array( 'index.html', 'index.htm' ) as $index_file ) {
+                $candidate = $prefix . trailingslashit( $directory ) . $index_file;
+
+                if ( $candidate !== $path && in_array( $candidate, $paths, true ) ) {
+                    return $candidate;
+                }
+            }
+
+            $next = dirname( $directory );
+
+            if ( $next === $directory ) {
+                break;
+            }
+
+            $directory = $next;
+        }
+
+        return '';
+    }
+
+    private function relative_source_path( string $path, string $source_dir = '' ): string {
+        if ( '' !== $source_dir ) {
+            $prefix = trailingslashit( $source_dir );
+
+            if ( str_starts_with( $path, $prefix ) ) {
+                return substr( $path, strlen( $prefix ) );
+            }
+        }
+
+        return ltrim( $path, '/' );
+    }
+
+    private function fallback_title( string $path, string $source_dir = '' ): string {
+        $path = $this->relative_source_path( $path, $source_dir );
         $basename = pathinfo( $path, PATHINFO_FILENAME );
 
         if ( 'index' === strtolower( $basename ) ) {
@@ -851,9 +931,7 @@ final class PIN_Site_Importer_Importer {
     }
 
     private function path_to_slug( string $path, string $source_dir = '' ): string {
-        if ( '' !== $source_dir && str_starts_with( $path, trailingslashit( $source_dir ) ) ) {
-            $path = substr( $path, strlen( trailingslashit( $source_dir ) ) );
-        }
+        $path = $this->relative_source_path( $path, $source_dir );
         $path = preg_replace( '/\.(?:html?|HTML?)$/', '', $path );
         $path = preg_replace( '~/index$~i', '', $path );
         $path = trim( (string) $path, '/' );
