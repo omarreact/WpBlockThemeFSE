@@ -247,10 +247,27 @@ final class PIN_Site_Importer_Asset_Manager {
                 );
             }
 
-            $parts[] = sanitize_file_name( $part );
+            // Preserve repository filenames exactly so relative CSS/JS imports
+            // continue to resolve. Reject unusual filesystem/control characters
+            // instead of silently renaming the file and breaking dependencies.
+            if (
+                preg_match( '/[\x00-\x1F\x7F]/', $part )
+                || ! preg_match( '/^[A-Za-z0-9._@+~=-]+$/', $part )
+            ) {
+                return new WP_Error(
+                    'pin_asset_path_unsafe',
+                    sprintf(
+                        /* translators: %s: unsafe path segment. */
+                        __( 'Asset path segment is not safe to mirror without renaming: %s', 'pin-site-importer' ),
+                        $part
+                    )
+                );
+            }
+
+            $parts[] = $part;
         }
 
-        if ( ! $parts || in_array( '', $parts, true ) ) {
+        if ( ! $parts ) {
             return new WP_Error(
                 'pin_asset_path_empty',
                 __( 'The repository asset path could not be normalized.', 'pin-site-importer' )
