@@ -50,6 +50,7 @@ $result = $converter->convert(
     '<!doctype html><html><head><title>Smoke Page</title>'
     . '<link rel="stylesheet" href="assets/site.css">'
     . '<link rel="stylesheet" href="https://cdn.example.com/theme.css">'
+    . '<style>.smoke-critical{display:block}</style>'
     . '<script src="assets/site.js" defer></script>'
     . '<script src="https://cdn.example.com/library.js" async></script></head><body>'
     . '<header class="source-header"><nav><a href="index.html">Home</a><a href="about/index.html">About</a></nav></header>'
@@ -70,6 +71,10 @@ pin_smoke_assert( ! str_contains( $result['content'], 'source-footer' ), 'Source
 pin_smoke_assert( str_contains( $result['header_content'], '<!-- wp:navigation ' ), 'Source navigation was not converted in header template part.' );
 pin_smoke_assert( str_contains( $result['footer_content'], 'Footer content' ), 'Source footer was not extracted.' );
 pin_smoke_assert( ! empty( $result['inline_css'] ), 'Safe inline styles were not preserved.' );
+pin_smoke_assert(
+    str_contains( (string) $result['embedded_css'], '.smoke-critical' ),
+    'Embedded critical CSS was not extracted.'
+);
 pin_smoke_assert( in_array( 'assets/site.css', $result['stylesheets'], true ), 'Stylesheet reference was not extracted.' );
 pin_smoke_assert( in_array( 'https://cdn.example.com/theme.css', $result['external_stylesheets'], true ), 'External stylesheet was not preserved.' );
 pin_smoke_assert(
@@ -285,9 +290,19 @@ pin_smoke_assert(
     str_contains( (string) get_post_field( 'post_content', $home_id ), get_permalink( $about_id ) ),
     'End-to-end import did not rewrite an internal page link.'
 );
+$home_css = (string) get_post_meta( $home_id, '_pin_import_css', true );
 pin_smoke_assert(
-    '' !== (string) get_post_meta( $home_id, '_pin_import_css', true ),
+    '' !== $home_css,
     'End-to-end import did not preserve page CSS.'
+);
+pin_smoke_assert(
+    str_contains( $home_css, '.fixture-critical' ),
+    'End-to-end import did not preserve embedded critical CSS.'
+);
+pin_smoke_assert(
+    str_contains( $home_css, 'pin-site-importer' )
+        && ! str_contains( $home_css, 'url("/assets/bg.svg")' ),
+    'Root-relative embedded CSS asset URL was not rewritten to mirrored WordPress uploads.'
 );
 pin_smoke_assert(
     is_array( get_post_meta( $home_id, '_pin_import_scripts', true ) )
