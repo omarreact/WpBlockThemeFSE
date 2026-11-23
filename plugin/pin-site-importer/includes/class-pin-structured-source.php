@@ -72,6 +72,71 @@ final class PIN_Site_Importer_Structured_Source {
     }
 
     /**
+     * Load a public structured repository without GitHub API metadata/tree calls.
+     *
+     * This probes only known structured filenames through raw.githubusercontent.com.
+     * It is intended for public repositories when the caller already knows the branch.
+     *
+     * @return array<string,mixed>|WP_Error|null
+     */
+    public function load_json_direct( string $source_dir = '' ) {
+        $prefix = '' !== trim( $source_dir, '/' ) ? trailingslashit( trim( $source_dir, '/' ) ) : '';
+        $groups = array(
+            'manifest' => array( 'site-manifest.json', 'manifest.site.json' ),
+            'content'  => array( 'content.json', 'site-content.json' ),
+            'tokens'   => array( 'design-tokens.json', 'tokens.json', 'theme-tokens.json' ),
+        );
+        $tree = array();
+
+        foreach ( $groups as $names ) {
+            foreach ( $names as $name ) {
+                $path = $prefix . $name;
+                $raw  = $this->github->get_public_raw_file(
+                    (string) $this->repository['owner'],
+                    (string) $this->repository['repo'],
+                    (string) $this->repository['branch'],
+                    $path,
+                    self::MAX_JSON_BYTES
+                );
+
+                if ( is_wp_error( $raw ) ) {
+                    if ( 'pin_github_raw_not_found' === $raw->get_error_code() ) {
+                        continue;
+                    }
+
+                    return $raw;
+                }
+
+                $tree[] = array(
+                    'type' => 'blob',
+                    'path' => $path,
+                );
+                break;
+            }
+        }
+
+        $has_manifest_or_content = false;
+
+        foreach ( $tree as $item ) {
+            $base = strtolower( basename( (string) $item['path'] ) );
+
+            if ( in_array( $base, array( 'site-manifest.json', 'manifest.site.json', 'content.json', 'site-content.json' ), true ) ) {
+                $has_manifest_or_content = true;
+                break;
+            }
+        }
+
+        if ( ! $has_manifest_or_content ) {
+            return null;
+        }
+
+        $repository         = $this->repository;
+        $repository['tree'] = $tree;
+
+        return ( new self( $this->github, $repository ) )->load_json( $source_dir );
+    }
+
+    /**
      * @return array<string,mixed>|WP_Error|null
      */
     public function load_json( string $source_dir = '' ) {
