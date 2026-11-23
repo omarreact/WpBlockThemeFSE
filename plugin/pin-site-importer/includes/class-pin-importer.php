@@ -17,6 +17,7 @@ final class PIN_Site_Importer_Importer {
         $repo_url       = esc_url_raw( (string) ( $args['repo_url'] ?? '' ) );
         $branch         = sanitize_text_field( (string) ( $args['branch'] ?? '' ) );
         $token          = sanitize_text_field( (string) ( $args['token'] ?? '' ) );
+        $source_dir     = trim( str_replace( '\\\\', '/', sanitize_text_field( (string) ( $args['source_dir'] ?? '' ) ) ), '/' );
         $post_status    = 'publish' === ( $args['post_status'] ?? '' ) ? 'publish' : 'draft';
         $import_media   = ! empty( $args['import_media'] );
         $import_css     = ! empty( $args['import_css'] );
@@ -27,6 +28,23 @@ final class PIN_Site_Importer_Importer {
 
         if ( is_wp_error( $repository ) ) {
             return $repository;
+        }
+
+        if ( '' !== $source_dir ) {
+            if ( false !== strpos( $source_dir, '..' ) ) {
+                return new WP_Error(
+                    'pin_invalid_source_directory',
+                    __( 'The source directory cannot contain parent-directory segments.', 'pin-site-importer' )
+                );
+            }
+
+            $prefix = trailingslashit( $source_dir );
+            $repository['html_files'] = array_values(
+                array_filter(
+                    $repository['html_files'],
+                    static fn( $path ) => str_starts_with( $path, $prefix )
+                )
+            );
         }
 
         $html_files = array_slice( $repository['html_files'], 0, self::MAX_PAGES );
@@ -57,6 +75,7 @@ final class PIN_Site_Importer_Importer {
             'repository'       => $repository['full_name'],
             'branch'           => $repository['branch'],
             'technology'       => $repository['technology'],
+            'source_dir'       => $source_dir,
             'pages_discovered' => count( $repository['html_files'] ),
             'pages_imported'   => 0,
             'pages_failed'     => 0,
