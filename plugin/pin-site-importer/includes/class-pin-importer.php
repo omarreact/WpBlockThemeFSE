@@ -106,7 +106,8 @@ final class PIN_Site_Importer_Importer {
                 $repository['owner'],
                 $repository['repo'],
                 $repository['branch'],
-                $path
+                $path,
+                $source_dir
             );
 
             if ( is_wp_error( $html ) ) {
