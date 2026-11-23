@@ -101,6 +101,8 @@ jobs:
 
   package:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs:
       - validate
       - wordpress-integration
@@ -114,16 +116,41 @@ jobs:
       - name: Verify package contents
         run: |
           test -f dist/pin-universal-fse.zip
+          test -f dist/pin-site-importer.zip
           unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/style.css'
           unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/plugin/pin-site-importer/pin-site-importer.php'
+          unzip -l dist/pin-site-importer.zip | grep -q 'pin-site-importer/pin-site-importer.php'
           if unzip -l dist/pin-universal-fse.zip | grep -q 'pin-universal-fse/tests/'; then
             echo "Development tests must not ship in the installable theme package."
             exit 1
           fi
 
-      - name: Upload installable theme
+      - name: Upload installable packages
         uses: actions/upload-artifact@v4
         with:
           name: pin-universal-fse
-          path: dist/pin-universal-fse.zip
+          path: |
+            dist/pin-universal-fse.zip
+            dist/pin-site-importer.zip
           if-no-files-found: error
+
+      - name: Publish verified package branch
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ github.event_name == 'pull_request' && 'distribution-rc' || 'distribution' }}
+        run: |
+          TMP_DIR="$(mktemp -d)"
+          cp dist/pin-universal-fse.zip "$TMP_DIR/"
+          cp dist/pin-site-importer.zip "$TMP_DIR/"
+          printf '%s\n' "${GITHUB_SHA}" > "$TMP_DIR/SOURCE_SHA"
+          printf '%s\n' "${GITHUB_REF_NAME}" > "$TMP_DIR/SOURCE_REF"
+          cd "$TMP_DIR"
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan package
+          git add .
+          git commit -m "Publish verified WordPress packages"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin HEAD:"${TARGET_BRANCH}"
