@@ -69,3 +69,28 @@ function pin_forexy_home_markup($markup) {
     },$markup);
 }
 add_filter('the_content',static function($markup){return is_front_page()&&pin_forexy_route('/')?pin_forexy_home_markup($markup):$markup;},20);
+
+// Safe presentation normalization for existing pages. No DB rewrite.
+function pin_forexy_normalize_content($markup) {
+    if(is_admin()||!is_singular('page')||!get_post_meta(get_queried_object_id(),'_pin_structured_route',true))return $markup;
+    $markup=preg_replace('~<div\b[^>]*class="(?:about-shadow-[12]|shadow-[12]|cta-shadow)"[^>]*>\s*</div>~i','',$markup);
+    $markup=preg_replace_callback('~<p\b([^>]*class="mgl-inner-breadcrumb"[^>]*)>(.*?)</p>~is',static function($m){
+        $body=preg_replace('~<span>([^<]+)</span>\s*$~','<span aria-current="page">$1</span>',$m[2]);
+        return '<nav'.$m[1].' aria-label="Breadcrumb">'.$body.'</nav>';
+    },$markup);
+    $sizes=['design2-resource-about-1.jpg'=>[604,604],'design2-resource-about-2.jpg'=>[303,356],'design2-resource-about-stats.png'=>[303,156],'design2-background-trading-bg.png'=>[370,434],'design2-resource-forex.jpg'=>[831,534],'design2-resource-app.png'=>[823,473],'design2-resource-app-1.png'=>[375,518],'images/blog/1.png'=>[326,195],'images/blog/2.png'=>[326,195],'images/blog/3.png'=>[326,194]];
+    $p=new WP_HTML_Tag_Processor($markup);
+    while($p->next_tag('IMG')){
+        $src=$p->get_attribute('src');if(!is_string($src))continue;
+        $path=parse_url($src,PHP_URL_PATH);if(!is_string($path))continue;
+        $i=strpos($path,'/assets/media/');if($i===false)continue;
+        $key=substr($path,$i+strlen('/assets/media/'));
+        if(!isset($sizes[$key])||$p->get_attribute('width')!==null||$p->get_attribute('height')!==null)continue;
+        // Only size original known assets. Media Library replacements are not rewritten.
+        if(strpos($path,'/source/assets/media/')===false)continue;
+        $p->set_attribute('width',(string)$sizes[$key][0]);$p->set_attribute('height',(string)$sizes[$key][1]);
+        if($p->get_attribute('decoding')===null)$p->set_attribute('decoding','async');
+    }
+    return $p->get_updated_html();
+}
+add_filter('the_content','pin_forexy_normalize_content',21);
