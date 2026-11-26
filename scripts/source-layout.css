@@ -20,3 +20,23 @@ body.pin-source-edge.design2-inner .page-wrapper>main[data-mgl2-layout]{margin-b
 body.pin-source-edge.design2-inner.admin-bar .mgl2-header{top:32px}
 @media(max-width:782px){body.pin-source-edge.design2-inner.admin-bar .mgl2-header{top:46px}}
 @media(max-width:600px){body.pin-source-edge.design2-inner.admin-bar .mgl2-header{top:0}}
+
+/* Gutenberg parity: the real source markup and styles, in a safe static canvas.
+   These rules never apply to public pages or the surrounding WP admin UI. */
+body.pin-editor-canvas{margin:0!important;max-width:none!important;padding:0!important;overflow-x:hidden;background:var(--theme-color-light,#132c28)}
+body.pin-editor-canvas .editor-styles-wrapper{margin:0!important;padding:0!important;max-width:none!important;min-width:0}
+body.pin-editor-canvas .is-root-container{max-width:none!important;width:100%;margin:0!important;padding:0!important}
+body.pin-editor-canvas .is-root-container>.wp-block{max-width:none}
+body.pin-editor-canvas :is(.wp-block-template-part,.wp-block-post-content){max-width:none!important;width:100%;margin:0!important;padding:0!important}
+body.pin-editor-canvas :is(.wp-block-pin-source-layout,.wp-block-pin-source-element){min-width:0}
+body.pin-editor-canvas .is-root-container > .wp-block-pin-source-layout{margin-block-start:0}
+body.pin-editor-canvas .page-wrapper{max-width:none!important;min-width:0;padding-block-start:0!important;overflow:visible}
+body.pin-editor-canvas .page-wrapper .banner-section{padding-block-start:0!important}
+body.pin-editor-canvas .mgl2-header{position:relative!important;inset:auto!important;transform:none!important;z-index:20}
+body.pin-editor-canvas .preloader{display:none!important}
+body.pin-editor-canvas :is(.wow,.aos-init,.tx-split-text,.swiper [class*="animate-"]){visibility:visible!important;opacity:1!important;transform:none!important;animation:none!important;transition:none!important}
+body.pin-editor-canvas .swiper-slide{height:auto!important}
+body.pin-editor-canvas .wp-block-pin-source-layout.acc-content{overflow:visible!important}
+body.pin-editor-canvas [data-pin-editor-page-wrapper] > .wp-block-pin-source-layout{width:100%}
+body.pin-editor-canvas .wp-block-pin-source-element:is(a,button){cursor:default}
+body.pin-editor-canvas .wp-block-pin-source-element:is(img){max-width:100%}

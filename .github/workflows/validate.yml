@@ -129,6 +129,7 @@ jobs:
           python3 -m http.server 4174 --directory build-source/forexy >/tmp/forexy-source.log 2>&1 &
           node tests/source-layout-browser.mjs
           node tests/source-element-editor.mjs
+          node tests/forexy-editor-parity.mjs
           node tests/release-browser.mjs
           node tests/inner-route-qa.mjs
           node tests/forexy-release-quality.mjs

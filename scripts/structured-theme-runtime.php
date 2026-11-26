@@ -174,10 +174,13 @@ add_action( 'enqueue_block_assets', static function (): void {
     // The Site Editor can preview any page/part. Load source CSS in its canvas,
     // without running source website scripts inside the administrator's editor.
     $config = pin_structured_config();
-    $entries = $config['shared']['css'];
+    // Source stylesheet before shared chrome/overrides, exactly as on the public route.
+    // This also keeps repeated asset handles in the same order in the iframe.
+    $entries = array();
     foreach ( $config['pages'] as $page ) {
         $entries = array_merge( $entries, $page['css'] );
     }
+    $entries = array_merge( $entries, $config['shared']['css'] );
     pin_structured_enqueue_css( $entries );
 } );
 

@@ -20,6 +20,62 @@
   }
   return out;
  }
+ // Restore source document context only inside the Gutenberg content iframe.
+ // Do not run the website's runtime (menus, animations, submissions) in admin.
+ const canvasProfiles=window.pinSourceCanvasProfile;
+ const observed=new WeakMap();
+ function syncCanvas(doc){
+  if(!canvasProfiles||doc===window.document||!doc.body)return;
+  const wrapper=doc.querySelector('.editor-styles-wrapper');
+  if(!wrapper)return;
+  const main=wrapper.querySelector('main#main-content,main[data-mgl2-layout]');
+  const profile=(main?.hasAttribute('data-mgl2-layout')?canvasProfiles.inner:canvasProfiles.home)||{};
+  const sourceClasses=new Set(String(profile.body?.class||'').split(/\s+/).filter(Boolean));
+  const knownClasses=new Set([...String(canvasProfiles.home?.body?.class||'').split(/\s+/),...String(canvasProfiles.inner?.body?.class||'').split(/\s+/)].filter(Boolean));
+  knownClasses.forEach(c=>doc.body.classList.toggle(c,sourceClasses.has(c)));
+  doc.body.classList.add('pin-editor-canvas','pin-source-edge');
+  Object.entries(profile.html||{}).forEach(([k,v])=>{if(k.startsWith('data-')&&typeof v==='string')doc.documentElement.setAttribute(k,v);});
+  // Page editor has no theme template wrapper; Site Editor already has one.
+  // Only mark the canvas's own root when a source main actually needs it.
+  wrapper.querySelectorAll('[data-pin-editor-page-wrapper]').forEach(e=>{
+   if(!main||!e.contains(main)||main.parentElement?.closest('.page-wrapper:not([data-pin-editor-page-wrapper])')){
+    e.classList.remove('page-wrapper');e.removeAttribute('data-pin-editor-page-wrapper');
+   }
+  });
+  if(main&&!main.parentElement?.closest('.page-wrapper')){
+   const root=main.closest('.is-root-container')||wrapper;
+   if(root!==main&&!root.classList.contains('page-wrapper')){
+    root.classList.add('page-wrapper');root.setAttribute('data-pin-editor-page-wrapper','1');
+   }
+  }
+ }
+ function attachCanvas(node){
+  const doc=node?.ownerDocument;
+  if(!doc||doc===window.document||!canvasProfiles)return;
+  syncCanvas(doc);
+  if(observed.has(doc))return;
+  let pending=false;
+  const schedule=()=>{if(pending)return;pending=true;(doc.defaultView||window).requestAnimationFrame(()=>{pending=false;syncCanvas(doc);});};
+  const observer=new (doc.defaultView.MutationObserver)(schedule);
+  observer.observe(doc.body,{childList:true,subtree:true});
+  observed.set(doc,observer);
+ }
+ function sourceProps(raw,tag){
+  const out={};
+  const names={tabindex:'tabIndex',srcset:'srcSet',fetchpriority:'fetchPriority'};
+  Object.keys(raw).forEach(k=>{
+   if(/^(?:id|role|title|lang|dir|aria-[a-z0-9_-]+|data-[a-z0-9_-]+)$/.test(k))out[k]=raw[k];
+   else if(tag==='img'&&/^(?:src|srcset|sizes|alt|width|height|loading|decoding|fetchpriority)$/.test(k))out[names[k]||k]=raw[k];
+   else if(tag==='a'&&/^(?:href|target|rel)$/.test(k))out[k]=raw[k];
+   else if(k==='hidden')out.hidden=true;
+  });
+  // Never let an editable link or button navigate or submit from the canvas.
+  if(tag==='a'||tag==='button'){
+   out.onClick=e=>e.preventDefault();
+   if(tag==='button')out.type='button';
+  }
+  return out;
+ }
  function controls(props,isLeaf){
   const a=props.attributes, r=a.sourceAttrs||{};
   const fields=[el(C.TextControl,{key:'class',label:'Source CSS classes',value:r.class||'',onChange:v=>change(props,'class',v)}),el(C.TextControl,{key:'id',label:'HTML anchor',value:r.id||'',onChange:v=>change(props,'id',v)})];
@@ -34,18 +90,24 @@
  }
  function Layout(props){
   const a=props.attributes,r=a.sourceAttrs||{},tag=layouts.includes(a.tagName)?a.tagName:'div';
-  const blockProps=E.useBlockProps({className:r.class||''});
-  const extra={};Object.keys(r).filter(k=>k==='id'||k==='role'||k.startsWith('data-')||k.startsWith('aria-')).forEach(k=>extra[k]=r[k]);
-  const inner=E.useInnerBlocksProps({...extra,...blockProps,style:{...sourceStyle(r.style),...blockProps.style}},{templateLock:false});
-  // Never make editor links navigate or activate website actions.
-  return el(F,null,controls(props,false),el(tag==='a'?'div':tag,inner));
+  const ref=wp.element.useRef(null);
+  const blockProps=E.useBlockProps({className:r.class||'',ref});
+  wp.element.useLayoutEffect(()=>{if(tag==='main'||tag==='header'||tag==='footer'||(r.class||'').split(/\s+/).includes('page-wrapper'))attachCanvas(ref.current);},[tag,r.class,r.id]);
+  const inner=E.useInnerBlocksProps({...sourceProps(r,tag),...blockProps,style:{...sourceStyle(r.style),...blockProps.style}},{templateLock:false});
+  if(tag==='a')inner.onClick=e=>e.preventDefault();
+  return el(F,null,controls(props,false),el(tag,inner));
  }
  function Leaf(props){
   const a=props.attributes,r=a.sourceAttrs||{},tag=elements.includes(a.tagName)?a.tagName:'span';
-  const bp=E.useBlockProps({className:r.class||''});bp.style={...sourceStyle(r.style),...bp.style};
-  let view;
-  if(tag==='img')view=el('div',bp,el('img',{src:r.src||undefined,alt:r.alt||'',style:{maxWidth:'100%',height:'auto'}}));
-  else view=el(tag==='a'||tag==='button'?'span':tag,bp,a.content||(tag==='i'?' ':''));
+  const ref=wp.element.useRef(null);
+  const bp=E.useBlockProps({className:r.class||'',ref});
+  wp.element.useLayoutEffect(()=>{attachCanvas(ref.current);},[]);
+  const attrs={...sourceProps(r,tag),...bp,style:{...sourceStyle(r.style),...bp.style}};
+  if(tag==='a'||tag==='button')attrs.onClick=e=>e.preventDefault();
+  if(tag==='img'&&attrs.alt===undefined)attrs.alt='';
+  // Preserve the actual source tag, dimensions and CSS class on the editable
+  // block itself. Extra divs/spans change flex/grid, child selectors and icons.
+  const view=tag==='img'?el(tag,attrs):el(tag,attrs,a.content||(tag==='i'?' ':''));
   return el(F,null,controls(props,true),view);
  }
  metadata.forEach(m=>{
