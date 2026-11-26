@@ -189,3 +189,9 @@ add_filter( 'language_attributes', static function ( string $attributes ): strin
     }
     return $attributes;
 } );
+
+// Source-layout extension is generated only for explicit opt-in manifests.
+if ( ! empty( pin_structured_config()['source_layout']['edgeToEdge'] ) ) {
+    require_once __DIR__ . '/source-layout.php';
+    require_once __DIR__ . '/local-setup.php';
+}

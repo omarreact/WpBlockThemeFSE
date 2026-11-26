@@ -1,0 +1,8 @@
+/* Only the opt-in source-layout profile changes WordPress canvas geometry. */
+body.pin-source-edge{margin:0;max-width:none}
+body.pin-source-edge .wp-site-blocks{padding:0!important;margin:0!important;max-width:none!important}
+body.pin-source-edge .wp-site-blocks :where(.wp-block-template-part,.wp-block-post-content){margin:0!important;padding:0!important;max-width:none!important;display:contents}
+body.pin-source-edge .wp-site-blocks>*{margin-block-start:0!important}
+body.pin-source-edge .wp-site-blocks .page-wrapper{max-width:none}
+body.pin-source-edge .wp-block-post-content>*{margin-block-start:0}
+.editor-styles-wrapper .block-editor-block-list__layout .wp-block-pin-source-layout{max-width:none}

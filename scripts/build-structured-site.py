@@ -151,6 +151,13 @@ class Builder:
         if self.theme.is_relative_to(self.src) and self.theme.relative_to(self.src).parts[0] in ASSET_DIRS:
             raise ValueError("Output cannot be inside a source asset directory")
         self.prefix = f"/wp-content/themes/{self.slug}/source/"
+        self.source_layout = self.manifest.get("sourceLayout") or {}
+        if not isinstance(self.source_layout, dict):
+            raise ValueError("sourceLayout must be an object")
+        self.edge = self.source_layout.get("edgeToEdge") is True
+        self.wrapper_class = str(self.source_layout.get("wrapperClass") or "")
+        if self.wrapper_class and not re.fullmatch(r"[A-Za-z0-9_-]+(?: [A-Za-z0-9_-]+)*", self.wrapper_class):
+            raise ValueError("Invalid source wrapper class")
         self.pages = self._pages()
         self.routes = {p["path"] for p in self.pages}
         self.file_routes = {safe_rel(str(p["file"])): p["path"] for p in self.pages if p.get("file")}
@@ -305,6 +312,31 @@ class Builder:
         self.counts["html_blocks"] += 1
         return block_markup("html", self.serialize(node, base))
 
+    def source_block(self, node, base):
+        """Preserve source containers without injecting core group layout CSS.
+        Complex markup stays in editable Custom HTML; ordinary text can use core blocks.
+        """
+        tag = node.tag
+        if tag is None:
+            return self.fallback(node, base) if node.text.strip() else ""
+        if tag in {"script", "style", "template", "comment"}:
+            return ""
+        classes = node.attrs.get("class") or ""
+        safe = all(re.fullmatch(r"(?:class|id|role|title|lang|dir|tabindex|hidden|style|aria-[a-z0-9_-]+|data-[a-z0-9_-]+)", key) for key in node.attrs)
+        children = [c for c in node.children if c.tag is not None or c.text.strip()]
+        structural = tag in {"main", "section", "article", "aside", "div", "header", "footer"}
+        widget = re.search(r"(?:swiper|carousel|slider|accordion|tabs|preloader|owl-)", classes, re.I)
+        if structural and safe and children and not widget and all(c.tag is not None for c in children):
+            attrs = {}
+            for key, value in node.attrs.items():
+                value = "" if value is None else value
+                attrs[key] = self.css_urls(value, base) if key == "style" else value
+            body = "".join(self.source_block(c, base) for c in children)
+            return self.native("pin/source-layout", body, {"tagName": tag, "sourceAttrs": attrs})
+        if tag in {"p", "h1", "h2", "h3", "h4", "h5", "h6"} and not (set(node.attrs) - {"class", "id"}):
+            return self.block(node, base)
+        return self.fallback(node, base)
+
     def block(self, node, base):
         tag = node.tag
         if tag is None:
@@ -402,7 +434,8 @@ class Builder:
         self.document_attrs[base] = {"html": doc.attrs if doc else {}, "body": body_node.attrs if body_node else {}}
         body = next((n for n in self.walk(tree.root) if n.tag == "body"), tree.root)
         # Keep <main> and its attributes; they are commonly CSS and script targets.
-        return "".join(self.block(child, base) for child in body.children if child.tag != "head" and (preserve_chrome or child.tag not in {"header", "footer"}))
+        convert = self.source_block if self.edge else self.block
+        return "".join(convert(child, base) for child in body.children if child.tag != "head" and (preserve_chrome or child.tag not in {"header", "footer"}))
 
     def sections_html(self, sections):
         if not isinstance(sections, list):
@@ -465,6 +498,8 @@ class Builder:
         self.collect(tree.root, base)
         if key == "header" and not any(n.tag == "header" for n in self.walk(tree.root)):
             self.warnings.append("Header fragment has no header wrapper; review source CSS and JavaScript selectors")
+        if self.edge:
+            return "".join(self.source_block(c, base) for c in tree.root.children) + "\n"
         return block_markup("html", "".join(self.serialize(c, base) for c in tree.root.children)) + "\n"
 
     def copy_assets(self):
@@ -507,7 +542,11 @@ class Builder:
     def templates(self):
         header = '<!-- wp:template-part {"slug":"header"} /-->\n'
         footer = '<!-- wp:template-part {"slug":"footer"} /-->\n'
-        singular = header + '<!-- wp:post-content {"layout":{"type":"default"}} /-->\n' + footer
+        content = '<!-- wp:post-content {"layout":{"type":"default"}} /-->\n'
+        if self.edge and self.wrapper_class:
+            singular = header + block_markup("pin/source-layout", content + footer, {"tagName":"div","sourceAttrs":{"class":self.wrapper_class}})
+        else:
+            singular = header + content + footer
         loop = '<!-- wp:query {"query":{"inherit":true}} --><div class="wp-block-query"><!-- wp:post-template --><!-- wp:post-title {"isLink":true} /--><!-- wp:post-excerpt /--><!-- /wp:post-template --><!-- wp:query-pagination --><!-- wp:query-pagination-previous /--><!-- wp:query-pagination-numbers /--><!-- wp:query-pagination-next /--><!-- /wp:query-pagination --><!-- wp:query-no-results --><!-- wp:paragraph --><p>No results found.</p><!-- /wp:paragraph --><!-- /wp:query-no-results --></div><!-- /wp:query -->'
         templates = {key: singular for key in ("singular", "page", "front-page")}
         templates.update({key: header + loop + footer for key in ("index", "home", "archive", "search")})
@@ -563,11 +602,21 @@ class Builder:
             (self.theme / directory).mkdir(exist_ok=True)
         (self.theme / "style.css").write_text(f"/*\nTheme Name: {self.name}\nDescription: Generated by PIN Structured Build Mode.\nVersion: 0.2.0\nRequires at least: 6.6\nRequires PHP: 8.1\nText Domain: {self.slug}\n*/\n", encoding="utf-8")
         theme_settings = self.theme_json()
+        if self.edge:
+            theme_settings["settings"]["layout"].update({"contentSize":"100%","wideSize":"100%"})
+            theme_settings["styles"].setdefault("spacing", {}).update({"blockGap":"0","padding":{"top":"0","right":"0","bottom":"0","left":"0"}})
+            if self.source_layout.get("dark") is True:
+                theme_settings["styles"]["color"] = {"background":self.tokens.get("colors",{}).get("background","#111111"),"text":self.tokens.get("colors",{}).get("text","#ffffff")}
         if any(page.get("template") == "standalone" for page in self.pages):
             theme_settings["customTemplates"] = [{"name": "pin-standalone", "title": "Independent source page", "postTypes": ["page"]}]
         (self.theme / "theme.json").write_text(json.dumps(theme_settings, indent=2) + "\n", encoding="utf-8")
         shutil.copyfile(pathlib.Path(__file__).with_name("structured-theme-runtime.php"), self.theme / "functions.php")
-        config = {"slug": self.slug, "asset_prefix": self.prefix, "pages": self.page_assets, "shared": shared}
+        config = {"slug": self.slug, "asset_prefix": self.prefix, "pages": self.page_assets, "shared": shared, "source_layout": self.source_layout}
+        if self.edge:
+            for name in ("source-layout.php","source-layout.js","source-layout.css","local-setup.php"):
+                shutil.copyfile(pathlib.Path(__file__).with_name(name), self.theme / name)
+            local_pages = [{"route":p["path"],"slug":route_slug(p["path"]),"parent":p["parent_route"],"title":str(p.get("title") or route_slug(p["path"]).title()),"content":p["blocks"]} for p in generated]
+            (self.theme / "pin-local-pages.json").write_text(json.dumps(local_pages, ensure_ascii=False), encoding="utf-8")
         (self.theme / "pin-build.json").write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         for key, content in parts.items():
             (self.theme / "parts" / f"{key}.html").write_text(content, encoding="utf-8")

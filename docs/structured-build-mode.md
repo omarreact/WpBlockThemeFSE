@@ -117,3 +117,7 @@ and [block rendering filters](https://developer.wordpress.org/reference/hooks/re
 Pages with `"template": "standalone"` preserve their complete source header/footer
 and use the Independent source page template. Shared template-part assets are
 excluded on those pages, so alternate homepages keep their own composition.
+
+## Opt-in full-width source layout
+
+A manifest may specify `"sourceLayout": {"edgeToEdge":true,"wrapperClass":"page-wrapper","dark":true}`. This keeps original structural wrappers using a dynamic source-layout block with editable InnerBlocks; source classes, safe data attributes and CSS stay intact. Complex widgets remain Custom HTML, not flattened into approximate core blocks. The generated theme includes a local setup dashboard, opens after activation and imports bundled pages in batches of four; existing unrelated pages are never overwritten. The explicit legacy migration option applies only to managed prior Forexy records. No GitHub access is needed after installation. The ordinary neutral builder path is unchanged. Real browser visual comparison is still required before claiming pixel parity.

@@ -88,6 +88,37 @@ jobs:
             build/meta-gray-label/pin-site-meta-grey-label/build-report.json
           if-no-files-found: error
 
+  forexy-edge-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: omarreact/meta-gray-label
+          ref: 3c2e5d34ed7d343b57be0d81576f9b3dfc1d7608
+          path: build-source/forexy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node build-source/forexy/scripts/export-forexy-fse.mjs build/forexy-source
+      - run: python scripts/build-structured-site.py --source-root build/forexy-source --out-dir build/forexy --theme-slug meta-grey-label-standalone
+      - run: python scripts/verify-structured-build.py build/forexy --expected-pages 52 --expected-theme meta-grey-label-standalone
+      - name: Validate generated source profile
+        run: |
+          python -c 'import json,pathlib,zipfile; p=pathlib.Path("build/forexy/meta-grey-label-standalone"); d=json.loads((p/"pin-local-pages.json").read_text()); assert len(d)==52; assert all("wp:pin/source-layout" in x["content"] for x in d); assert "page-wrapper" in (p/"templates/front-page.html").read_text(); assert (p/"source/theme-2/runtime.js").is_file(); assert zipfile.ZipFile("build/forexy/meta-grey-label-standalone.zip").testzip() is None'
+          php -l build/forexy/meta-grey-label-standalone/functions.php
+          php -l build/forexy/meta-grey-label-standalone/local-setup.php
+          php -l build/forexy/meta-grey-label-standalone/source-layout.php
+          node --check build/forexy/meta-grey-label-standalone/source-layout.js
+          node --check build/forexy/meta-grey-label-standalone/source/theme-2/runtime.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meta-grey-label-forexy-fse
+          path: |
+            build/forexy/meta-grey-label-standalone.zip
+            build/forexy/meta-grey-label-standalone/build-report.json
+          if-no-files-found: error
+
   wordpress-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 15
