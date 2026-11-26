@@ -1,27 +1,18 @@
 (()=>{'use strict';
  const form=document.getElementById('pin-local-import'), progress=document.getElementById('pin-local-progress');
  if(!form||!progress)return;
- form.addEventListener('submit',async event=>{
-  event.preventDefault();
-  const data=new FormData(form);data.set('pin_json','1');
-  const controls=Array.from(form.querySelectorAll('button,input[type=checkbox]'));
-  controls.forEach(c=>c.disabled=true);
-  progress.textContent='Preparing local import…';
-  try{
-   let last=-1;
-   for(let n=0;n<80;n++){
-    const response=await fetch(form.action,{method:'POST',body:data,credentials:'same-origin',cache:'no-store'});
-    const result=await response.json();
-    if(!response.ok||!result.success)throw Error(result.data?.message||'Import request failed');
-    const {cursor,total,done}=result.data;
-    progress.textContent='Imported / matched '+cursor+' of '+total+' pages';
-    const bar=document.getElementById('pin-import-bar');if(bar){bar.max=total;bar.value=cursor;}
-    const count=document.getElementById('pin-import-count');if(count)count.textContent=cursor+' / '+total;
-    if(done){location.reload();return;}
-    if(cursor<=last)throw Error('Import stopped advancing. Resume after reviewing the setup report.');
-    last=cursor;
-   }
-   throw Error('Import batch limit reached. Resume from the setup page.');
-  }catch(error){progress.textContent=error.message+' — existing progress is preserved.';controls.forEach(c=>c.disabled=false);}
+ let submitting=false;
+ form.addEventListener('submit',event=>{
+  if(submitting){event.preventDefault();return;}
+  submitting=true;
+  progress.textContent='Importing next batch… The page will reload when it is saved.';
+  form.querySelectorAll('button').forEach(button=>button.disabled=true);
+  // Do not disable migration input: the normal browser POST needs its value.
  });
+ // Continuation is only emitted by the server after a successful batch, with
+ // a user-bound nonce and saved cursor. No AJAX or JSON parsing is required.
+ if(form.dataset.pinContinue==='1'){
+  progress.textContent='Batch saved. Continuing import…';
+  window.setTimeout(()=>{if(!submitting)form.requestSubmit();},500);
+ }
 })();

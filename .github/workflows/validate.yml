@@ -130,6 +130,8 @@ jobs:
           node tests/source-layout-browser.mjs
           node tests/source-element-editor.mjs
           node tests/release-browser.mjs
+          bash scripts/wordpress-test.sh run cli wp option delete pin_local_setup_meta-grey-label
+          node tests/setup-form-browser.mjs
           python scripts/package-release.py build/forexy/meta-grey-label --package build/forexy/meta-grey-label-v0.0.1.zip
       - name: Upload comparison evidence
         if: always()
