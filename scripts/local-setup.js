@@ -15,6 +15,8 @@
     if(!response.ok||!result.success)throw Error(result.data?.message||'Import request failed');
     const {cursor,total,done}=result.data;
     progress.textContent='Imported / matched '+cursor+' of '+total+' pages';
+    const bar=document.getElementById('pin-import-bar');if(bar){bar.max=total;bar.value=cursor;}
+    const count=document.getElementById('pin-import-count');if(count)count.textContent=cursor+' / '+total;
     if(done){location.reload();return;}
     if(cursor<=last)throw Error('Import stopped advancing. Resume after reviewing the setup report.');
     last=cursor;

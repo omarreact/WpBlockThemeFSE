@@ -2,7 +2,7 @@
 // Runs only inside disposable CI WordPress. Never run against a production database.
 wp_set_current_user(1);
 function source_assert($ok,$message){if(!$ok)throw new Exception($message);}
-source_assert(wp_get_theme()->get_stylesheet()==='meta-grey-label-standalone','Wrong active theme');
+source_assert(wp_get_theme()->get_stylesheet()==='meta-grey-label','Wrong active theme');
 source_assert(WP_Block_Type_Registry::get_instance()->is_registered('pin/source-layout'),'Source layout block not registered');
 source_assert(count(pin_local_pages())===52,'Expected 52 bundled pages');
 source_assert(WP_Block_Type_Registry::get_instance()->is_registered('pin/source-element'),'Source element block not registered');
@@ -34,7 +34,7 @@ source_assert(str_contains($markup,'id="main-content"'),'Source main wrapper mis
 source_assert(str_contains($markup,'banner-section'),'Original hero class missing');
 source_assert(str_contains($markup,'/source/assets/'),'Source asset URLs not resolved');
 source_assert(!str_contains($markup,'/__pin_route__/'),'Unresolved route marker');
-$header=get_block_template('meta-grey-label-standalone//header','wp_template_part');
+$header=get_block_template('meta-grey-label//header','wp_template_part');
 source_assert($header&&str_contains($header->content,'mgl2-header'),'Source header missing');
 $header_html=do_blocks($header->content);
 source_assert(str_contains($header_html,'mgl-mega-column'),'Mega menu missing');
@@ -57,4 +57,18 @@ source_assert($parsed[0]['innerBlocks'][0]['attrs']['content']==='Original edito
 source_assert(str_contains(do_blocks($fixture),'<p class="fixture-text">Original editor fixture</p>'),'Source text renderer changed markup');
 $bad='<!-- wp:pin/source-element {"tagName":"script","sourceAttrs":{"onclick":"alert(1)"},"content":"<img onerror=alert(1)>"} /-->';
 $rendered=do_blocks($bad);source_assert(!str_contains($rendered,'<script')&&!str_contains($rendered,'<img')&&!str_contains($rendered,'onclick='),'Unsafe source attributes were rendered');
-echo "PASS: 52 native pages, protected conflicts, explicit legacy migration, idempotent import, source wrappers, editable elements and local asset links.\n";
+source_assert(wp_get_theme()->get('Version')==='0.0.1','Release version mismatch');
+source_assert((bool)get_post_meta($existing,'_pin_import_seo_title',true),'SEO metadata not imported');
+source_assert((bool)get_option('site_icon'),'Site icon not imported');
+source_assert((bool)get_option(pin_local_option().'_before'),'Settings snapshot missing');
+foreach(['single','home','archive','category','tag','author','search','404','page-insights','page-contact'] as $template){
+ source_assert((bool)get_block_template('meta-grey-label//'.$template,'wp_template'),'Missing template '.$template);
+}
+$post=wp_insert_post(['post_type'=>'post','post_status'=>'publish','post_name'=>'pin-release-blog','post_title'=>'PIN release blog fixture','post_content'=>'<!-- wp:paragraph --><p>Native blog fixture body.</p><!-- /wp:paragraph -->'],true);
+source_assert(!is_wp_error($post),'Post fixture failed');
+update_option('pin_release_recipient','qa@example.invalid');update_option('pin_release_contact_enabled',true);
+add_filter('pre_wp_mail',static function($pre,$atts){source_assert($atts['to']==='qa@example.invalid','Wrong recipient');return true;},10,2);
+source_assert(pin_release_enquiry_send(['name'=>'QA','email'=>'qa@example.invalid','message'=>'Fixture only']),'Mail handler fixture failed');
+source_assert(!pin_release_enquiry_send(['name'=>'QA','email'=>'invalid','message'=>'Fixture only']),'Invalid email accepted');
+source_assert(!pin_release_enquiry_send(['name'=>'QA','email'=>'qa@example.invalid','message'=>'Fixture','website'=>'spam']),'Honeypot bypass');
+echo "PASS: release identity, 52 native pages, protected conflicts, explicit legacy migration, native blog templates, SEO metadata, icon, mocked mail and editable elements.\n";

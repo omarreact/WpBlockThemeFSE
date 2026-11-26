@@ -38,9 +38,13 @@ function pin_structured_urls( $value ) {
     if ( ! is_string( $value ) ) {
         return $value;
     }
+    foreach ( pin_structured_config()['release']['previousThemeSlugs'] ?? array() as $legacy ) {
+        $old = content_url( '/themes/' . $legacy . '/source/' );
+        $value = str_replace( $old, trailingslashit( get_theme_file_uri( '/source' ) ), $value );
+    }
     $value = str_replace(
-        array( pin_structured_config()['asset_prefix'], '__PIN_THEME__/' ),
-        array( trailingslashit( get_theme_file_uri( '/source' ) ), trailingslashit( get_theme_file_uri() ) ),
+        array_merge( array( pin_structured_config()['asset_prefix'], '__PIN_THEME__/' ), array_map( static function ( $slug ) { return '/wp-content/themes/' . $slug . '/source/'; }, pin_structured_config()['release']['previousThemeSlugs'] ?? array() ) ),
+        array_merge( array( trailingslashit( get_theme_file_uri( '/source' ) ), trailingslashit( get_theme_file_uri() ) ), array_fill( 0, count( pin_structured_config()['release']['previousThemeSlugs'] ?? array() ), trailingslashit( get_theme_file_uri( '/source' ) ) ) ),
         $value
     );
     if ( false === strpos( $value, '/__pin_route__/' ) ) {
@@ -81,7 +85,7 @@ foreach ( array( 'page', 'wp_template', 'wp_template_part' ) as $type ) {
 function pin_structured_bundle(): array {
     $config = pin_structured_config();
     $route = (string) get_post_meta( get_queried_object_id(), '_pin_structured_route', true );
-    $page = $config['pages'][ $route ] ?? array( 'css' => array(), 'js' => array() );
+    $page = $config['pages'][ $route ] ?? ( ! empty( $config['release'] ) ? ( $config['pages']['/'] ?? array( 'css' => array(), 'js' => array() ) ) : array( 'css' => array(), 'js' => array() ) );
     $shared = $config['shared'];
     if ( ! empty( $page['standalone'] ) ) {
         return $page;
@@ -102,7 +106,7 @@ function pin_structured_enqueue_css( array $entries ): void {
             continue;
         }
         $seen[ $handle ] = true;
-        wp_enqueue_style( $handle, $url, $previous, null, $entry['media'] );
+        wp_enqueue_style( $handle, $url, $previous, wp_get_theme()->get( 'Version' ), $entry['media'] );
         $previous = array( $handle );
     }
 }
@@ -133,7 +137,7 @@ add_action( 'wp_enqueue_scripts', static function (): void {
         } elseif ( $entry['defer'] ) {
             $args['strategy'] = 'defer';
         }
-        wp_enqueue_script( $handle, $url, $previous, null, $args );
+        wp_enqueue_script( $handle, $url, $previous, wp_get_theme()->get( 'Version' ), $args );
         if ( $entry['module'] ) {
             wp_script_add_data( $handle, 'pin_module', true );
         }
@@ -181,7 +185,7 @@ add_filter( 'body_class', static function ( array $classes ): array {
 add_filter( 'language_attributes', static function ( string $attributes ): string {
     $config = pin_structured_config();
     $route = (string) get_post_meta( get_queried_object_id(), '_pin_structured_route', true );
-    $source = $config['pages'][ $route ]['document']['html'] ?? array();
+    $source = $config['pages'][ $route ]['document']['html'] ?? ( ! empty( $config['release'] ) ? ( $config['pages']['/']['document']['html'] ?? array() ) : array() );
     foreach ( $source as $name => $value ) {
         if ( preg_match( '/^(?:data-[a-z0-9_-]+|class|id)$/', $name ) && is_string( $value ) ) {
             $attributes .= ' ' . $name . '="' . esc_attr( $value ) . '"';
@@ -195,3 +199,5 @@ if ( ! empty( pin_structured_config()['source_layout']['edgeToEdge'] ) ) {
     require_once __DIR__ . '/source-layout.php';
     require_once __DIR__ . '/local-setup.php';
 }
+
+if ( ! empty( pin_structured_config()['release'] ) ) { require_once __DIR__ . '/release-runtime.php'; }
