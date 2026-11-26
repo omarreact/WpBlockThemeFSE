@@ -26,7 +26,7 @@
  const observed=new WeakMap();
  function syncCanvas(doc){
   if(!canvasProfiles||doc===window.document||!doc.body)return;
-  const wrapper=doc.querySelector('.editor-styles-wrapper');
+  const wrapper=doc.body.matches('.editor-styles-wrapper')?doc.body:doc.querySelector('.editor-styles-wrapper');
   if(!wrapper)return;
   const main=wrapper.querySelector('main#main-content,main[data-mgl2-layout]');
   const profile=(main?.hasAttribute('data-mgl2-layout')?canvasProfiles.inner:canvasProfiles.home)||{};
@@ -50,7 +50,7 @@
   }
  }
  function attachCanvas(node){
-  const doc=node?.ownerDocument;
+  const doc=node?.nodeType===9?node:node?.ownerDocument;
   if(!doc||doc===window.document||!canvasProfiles)return;
   syncCanvas(doc);
   if(observed.has(doc))return;
@@ -59,6 +59,23 @@
   const observer=new (doc.defaultView.MutationObserver)(schedule);
   observer.observe(doc.body,{childList:true,subtree:true});
   observed.set(doc,observer);
+ }
+ // React's block refs may be mounted before the iframe document is ready.
+ // Listen for editor-canvas creation/navigation as a second, idempotent path.
+ if(canvasProfiles){
+  const attachedFrames=new WeakSet();
+  let scheduled=false;
+  function scan(){
+   scheduled=false;
+   document.querySelectorAll('iframe[name="editor-canvas"]').forEach(frame=>{
+    const connect=()=>{try{if(frame.contentDocument)attachCanvas(frame.contentDocument);}catch(_){/* Ignore inaccessible frames. */}};
+    if(!attachedFrames.has(frame)){attachedFrames.add(frame);frame.addEventListener('load',connect);}
+    connect();
+   });
+  }
+  const schedule=()=>{if(!scheduled){scheduled=true;window.requestAnimationFrame(scan);}};
+  const start=()=>{scan();new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});};
+  if(document.body)start();else document.addEventListener('DOMContentLoaded',start,{once:true});
  }
  function sourceProps(raw,tag){
   const out={};

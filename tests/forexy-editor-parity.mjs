@@ -21,7 +21,14 @@ try{
   await page.goto(editUrl);
   await page.waitForFunction(()=>wp.data.select('core/block-editor')?.getBlocks()?.some(b=>b.name==='pin/source-layout'),{},{timeout:60000});
   const frame=await (async()=>{for(let i=0;i<100;i++){const f=page.frames().find(f=>f!==page.mainFrame()&&f.url()!=='about:blank'&&f.name()==='editor-canvas');if(f)return f;const g=page.frames().find(f=>f!==page.mainFrame()&&f.name()==='editor-canvas');if(g)return g;await page.waitForTimeout(200);}throw Error('Editor canvas not found');})();
-  await frame.waitForFunction(()=>document.body.classList.contains('pin-editor-canvas')&&!!document.querySelector('main#main-content'),{},{timeout:60000});
+  try {
+   await frame.waitForFunction(()=>document.body.classList.contains('pin-editor-canvas')&&!!document.querySelector('main#main-content'),{},{timeout:60000});
+  } catch(error) {
+   const diagnostics=await frame.evaluate(()=>({body:document.body?.className,html:document.documentElement.outerHTML.slice(0,500),main:[...document.querySelectorAll('main')].map(e=>({id:e.id,class:e.className})),wrappers:[...document.querySelectorAll('.editor-styles-wrapper,.is-root-container')].map(e=>({tag:e.tagName,class:e.className})),sourceBlocks:document.querySelectorAll('.wp-block-pin-source-layout').length,styles:[...document.styleSheets].map(s=>s.href).filter(Boolean)})).catch(e=>({error:String(e)}));
+   evidence.push({route,error:String(error),diagnostics,profile:await page.evaluate(()=>window.pinSourceCanvasProfile||null)});
+   await page.screenshot({path:out+'/failed-editor.png',animations:'disabled'}).catch(()=>{});
+   throw error;
+  }
   await frame.evaluate(async()=>{await document.fonts.ready;});
   const editor=await frame.evaluate(()=>{
    const main=document.querySelector('main#main-content'),h=main.querySelector('h1'),s=getComputedStyle(h),r=main.getBoundingClientRect();
