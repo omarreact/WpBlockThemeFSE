@@ -40,7 +40,7 @@ function pin_source_element_render( $attrs ) {
 }
 add_action( 'init', static function () {
     $root = get_template_directory();
-    wp_register_script( 'pin-source-blocks-editor', get_theme_file_uri( '/source-layout.js' ), array( 'wp-blocks', 'wp-element', 'wp-block-editor', 'wp-components', 'wp-i18n' ), '1.1.0', true );
+    wp_register_script( 'pin-source-blocks-editor', get_theme_file_uri( '/source-layout.js' ), array( 'wp-blocks', 'wp-element', 'wp-block-editor', 'wp-components', 'wp-i18n' ), pin_asset_version( get_theme_file_uri( '/source-layout.js' ) ), true );
     $metadata = array();
     foreach ( array( 'source-layout' => 'pin_source_layout_render', 'source-element' => 'pin_source_element_render' ) as $name => $render ) {
         $dir = $root . '/blocks/' . $name;
@@ -48,7 +48,8 @@ add_action( 'init', static function () {
         register_block_type( $dir, array( 'render_callback' => $render ) );
     }
     wp_add_inline_script( 'pin-source-blocks-editor', 'window.pinSourceBlockMetadata=' . wp_json_encode( $metadata, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ) . ';', 'before' );
+
 } );
 add_filter( 'body_class', static function ( $classes ) { $classes[] = 'pin-source-edge'; return $classes; } );
-add_action( 'wp_enqueue_scripts', static function () { wp_enqueue_style( 'pin-source-edge', get_theme_file_uri( '/source-layout.css' ), array(), '1.1.0' ); }, 100 );
-add_action( 'enqueue_block_assets', static function () { if ( is_admin() ) { wp_enqueue_style( 'pin-source-edge-editor', get_theme_file_uri( '/source-layout.css' ), array(), '1.1.0' ); } }, 100 );
+add_action( 'wp_enqueue_scripts', static function () { wp_enqueue_style( 'pin-source-edge', get_theme_file_uri( '/source-layout.css' ), array(), pin_asset_version( get_theme_file_uri( '/source-layout.css' ) ) ); }, 100 );
+add_action( 'enqueue_block_assets', static function () { if ( is_admin() && ! is_file( get_theme_file_path( '/editor-style.css' ) ) ) { wp_enqueue_style( 'pin-source-edge-editor', get_theme_file_uri( '/source-layout.css' ), array(), pin_asset_version( get_theme_file_uri( '/source-layout.css' ) ) ); } }, 100 );

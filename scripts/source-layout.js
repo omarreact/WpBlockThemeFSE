@@ -20,6 +20,23 @@
   }
   return out;
  }
+ function sourceProps(raw,tag){
+  const out={};
+  const names={tabindex:'tabIndex',srcset:'srcSet',fetchpriority:'fetchPriority'};
+  Object.keys(raw).forEach(k=>{
+   if(k==='id')out['data-pin-source-id']=raw[k];
+   else if(/^(?:role|title|lang|dir|aria-[a-z0-9_-]+|data-[a-z0-9_-]+)$/.test(k))out[k]=raw[k];
+   else if(tag==='img'&&/^(?:src|srcset|sizes|alt|width|height|loading|decoding|fetchpriority)$/.test(k))out[names[k]||k]=raw[k];
+   else if(tag==='a'&&/^(?:href|target|rel)$/.test(k))out[k]=raw[k];
+   else if(k==='hidden')out.hidden=true;
+  });
+  // Never let an editable link or button navigate or submit from the canvas.
+  if(tag==='a'||tag==='button'){
+   out.onClick=e=>e.preventDefault();
+   if(tag==='button')out.type='button';
+  }
+  return out;
+ }
  function controls(props,isLeaf){
   const a=props.attributes, r=a.sourceAttrs||{};
   const fields=[el(C.TextControl,{key:'class',label:'Source CSS classes',value:r.class||'',onChange:v=>change(props,'class',v)}),el(C.TextControl,{key:'id',label:'HTML anchor',value:r.id||'',onChange:v=>change(props,'id',v)})];
@@ -34,18 +51,19 @@
  }
  function Layout(props){
   const a=props.attributes,r=a.sourceAttrs||{},tag=layouts.includes(a.tagName)?a.tagName:'div';
-  const blockProps=E.useBlockProps({className:r.class||''});
-  const extra={};Object.keys(r).filter(k=>k==='id'||k==='role'||k.startsWith('data-')||k.startsWith('aria-')).forEach(k=>extra[k]=r[k]);
-  const inner=E.useInnerBlocksProps({...extra,...blockProps,style:{...sourceStyle(r.style),...blockProps.style}},{templateLock:false});
-  // Never make editor links navigate or activate website actions.
-  return el(F,null,controls(props,false),el(tag==='a'?'div':tag,inner));
+  const blockProps=E.useBlockProps({...sourceProps(r,tag),className:r.class||'',style:sourceStyle(r.style)});
+  const inner=E.useInnerBlocksProps(blockProps,{templateLock:false});
+  if(tag==='a')inner.onClick=e=>e.preventDefault();
+  return el(F,null,controls(props,false),el(tag,inner));
  }
  function Leaf(props){
   const a=props.attributes,r=a.sourceAttrs||{},tag=elements.includes(a.tagName)?a.tagName:'span';
-  const bp=E.useBlockProps({className:r.class||''});bp.style={...sourceStyle(r.style),...bp.style};
-  let view;
-  if(tag==='img')view=el('div',bp,el('img',{src:r.src||undefined,alt:r.alt||'',style:{maxWidth:'100%',height:'auto'}}));
-  else view=el(tag==='a'||tag==='button'?'span':tag,bp,a.content||(tag==='i'?' ':''));
+  const attrs=E.useBlockProps({...sourceProps(r,tag),className:r.class||'',style:sourceStyle(r.style)});
+  if(tag==='a'||tag==='button')attrs.onClick=e=>e.preventDefault();
+  if(tag==='img'&&attrs.alt===undefined)attrs.alt='';
+  // Preserve the actual source tag, dimensions and CSS class on the editable
+  // block itself. Extra divs/spans change flex/grid, child selectors and icons.
+  const view=tag==='img'?el(tag,attrs):el(tag,attrs,a.content||(tag==='i'?' ':''));
   return el(F,null,controls(props,true),view);
  }
  metadata.forEach(m=>{

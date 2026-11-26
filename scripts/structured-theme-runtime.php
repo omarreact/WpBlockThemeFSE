@@ -38,11 +38,18 @@ function pin_structured_urls( $value ) {
     if ( ! is_string( $value ) ) {
         return $value;
     }
-    $value = str_replace(
-        array( pin_structured_config()['asset_prefix'], '__PIN_THEME__/' ),
-        array( trailingslashit( get_theme_file_uri( '/source' ) ), trailingslashit( get_theme_file_uri() ) ),
-        $value
-    );
+    // Markers are resolved exactly once, including content that has already been
+    // opened and saved in Gutenberg. Do not replace the path inside absolute URLs.
+    $target = trailingslashit( get_theme_file_uri( '/source' ) );
+    $prefixes = array( pin_structured_config()['asset_prefix'] );
+    foreach ( pin_structured_config()['release']['previousThemeSlugs'] ?? array() as $legacy ) {
+        $prefixes[] = '/wp-content/themes/' . $legacy . '/source/';
+        $value = str_replace( content_url( '/themes/' . $legacy . '/source/' ), $target, $value );
+    }
+    foreach ( $prefixes as $prefix ) {
+        $value = preg_replace_callback( '~(?<![A-Za-z0-9_:/.-])' . preg_quote( $prefix, '~' ) . '~', static function () use ( $target ) { return $target; }, $value );
+    }
+    $value = str_replace( '__PIN_THEME__/', trailingslashit( get_theme_file_uri() ), $value );
     if ( false === strpos( $value, '/__pin_route__/' ) ) {
         return $value;
     }
@@ -81,7 +88,7 @@ foreach ( array( 'page', 'wp_template', 'wp_template_part' ) as $type ) {
 function pin_structured_bundle(): array {
     $config = pin_structured_config();
     $route = (string) get_post_meta( get_queried_object_id(), '_pin_structured_route', true );
-    $page = $config['pages'][ $route ] ?? array( 'css' => array(), 'js' => array() );
+    $page = $config['pages'][ $route ] ?? ( ! empty( $config['release'] ) ? ( $config['pages']['/'] ?? array( 'css' => array(), 'js' => array() ) ) : array( 'css' => array(), 'js' => array() ) );
     $shared = $config['shared'];
     if ( ! empty( $page['standalone'] ) ) {
         return $page;
@@ -92,6 +99,14 @@ function pin_structured_bundle(): array {
     );
 }
 
+/** Fingerprint local assets even when the approved public version stays fixed. */
+function pin_asset_version($url): string {
+    static $cache=[];
+    if(isset($cache[$url]))return $cache[$url];
+    $base=trailingslashit(get_theme_file_uri());
+    $file=str_starts_with($url,$base)?get_theme_file_path('/'.substr($url,strlen($base))):'';
+    return $cache[$url]=is_file($file)?substr(hash_file('sha256',$file),0,12):wp_get_theme()->get('Version');
+}
 function pin_structured_enqueue_css( array $entries ): void {
     $seen = array();
     $previous = array();
@@ -102,7 +117,7 @@ function pin_structured_enqueue_css( array $entries ): void {
             continue;
         }
         $seen[ $handle ] = true;
-        wp_enqueue_style( $handle, $url, $previous, null, $entry['media'] );
+        wp_enqueue_style( $handle, $url, $previous, pin_asset_version($url), $entry['media'] );
         $previous = array( $handle );
     }
 }
@@ -111,6 +126,7 @@ add_action( 'after_setup_theme', static function (): void {
     foreach ( array( 'editor-styles', 'title-tag', 'block-template-parts', 'align-wide', 'post-thumbnails' ) as $support ) {
         add_theme_support( $support );
     }
+    if ( is_file( get_theme_file_path( '/editor-style.css' ) ) ) { add_editor_style( 'editor-style.css' ); }
 } );
 
 add_action( 'wp_enqueue_scripts', static function (): void {
@@ -133,7 +149,7 @@ add_action( 'wp_enqueue_scripts', static function (): void {
         } elseif ( $entry['defer'] ) {
             $args['strategy'] = 'defer';
         }
-        wp_enqueue_script( $handle, $url, $previous, null, $args );
+        wp_enqueue_script( $handle, $url, $previous, pin_asset_version($url), $args );
         if ( $entry['module'] ) {
             wp_script_add_data( $handle, 'pin_module', true );
         }
@@ -153,16 +169,19 @@ add_filter( 'script_loader_tag', static function ( string $tag, string $handle )
 }, 10, 2 );
 
 add_action( 'enqueue_block_assets', static function (): void {
-    if ( ! is_admin() ) {
+    if ( ! is_admin() || is_file( get_theme_file_path( '/editor-style.css' ) ) ) {
         return;
     }
     // The Site Editor can preview any page/part. Load source CSS in its canvas,
     // without running source website scripts inside the administrator's editor.
     $config = pin_structured_config();
-    $entries = $config['shared']['css'];
+    // Source stylesheet before shared chrome/overrides, exactly as on the public route.
+    // This also keeps repeated asset handles in the same order in the iframe.
+    $entries = array();
     foreach ( $config['pages'] as $page ) {
         $entries = array_merge( $entries, $page['css'] );
     }
+    $entries = array_merge( $entries, $config['shared']['css'] );
     pin_structured_enqueue_css( $entries );
 } );
 
@@ -171,7 +190,8 @@ add_action( 'enqueue_block_assets', static function (): void {
 add_filter( 'body_class', static function ( array $classes ): array {
     $config = pin_structured_config();
     $route = (string) get_post_meta( get_queried_object_id(), '_pin_structured_route', true );
-    $source = $config['pages'][ $route ]['document']['body']['class'] ?? '';
+    if ( ! empty( $config['release'] ) && ! isset( $config['pages'][ $route ] ) ) { $classes[] = 'pin-native-route'; }
+    $source = $config['pages'][ $route ]['document']['body']['class'] ?? ( ! empty( $config['release'] ) ? ( $config['pages']['/']['document']['body']['class'] ?? '' ) : '' );
     foreach ( preg_split( '/\s+/', $source, -1, PREG_SPLIT_NO_EMPTY ) as $class ) {
         $classes[] = sanitize_html_class( $class );
     }
@@ -181,7 +201,7 @@ add_filter( 'body_class', static function ( array $classes ): array {
 add_filter( 'language_attributes', static function ( string $attributes ): string {
     $config = pin_structured_config();
     $route = (string) get_post_meta( get_queried_object_id(), '_pin_structured_route', true );
-    $source = $config['pages'][ $route ]['document']['html'] ?? array();
+    $source = $config['pages'][ $route ]['document']['html'] ?? ( ! empty( $config['release'] ) ? ( $config['pages']['/']['document']['html'] ?? array() ) : array() );
     foreach ( $source as $name => $value ) {
         if ( preg_match( '/^(?:data-[a-z0-9_-]+|class|id)$/', $name ) && is_string( $value ) ) {
             $attributes .= ' ' . $name . '="' . esc_attr( $value ) . '"';
@@ -195,3 +215,5 @@ if ( ! empty( pin_structured_config()['source_layout']['edgeToEdge'] ) ) {
     require_once __DIR__ . '/source-layout.php';
     require_once __DIR__ . '/local-setup.php';
 }
+
+if ( ! empty( pin_structured_config()['release'] ) ) { require_once __DIR__ . '/release-runtime.php'; }

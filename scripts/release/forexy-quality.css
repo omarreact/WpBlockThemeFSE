@@ -1,0 +1,7 @@
+
+/* Forexy-specific WordPress integration, not a second palette. Source owns colors. */
+body.pin-source-edge .mgl-contact-send{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:18px}
+body.pin-source-edge .mgl-contact-send p{margin:0;flex:1;min-width:min(100%,180px);font-size:14px;line-height:1.5;color:#b3ccc0}
+body.pin-source-edge .mgl-contact-form .pin-honeypot{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}
+body.pin-source-edge .mgl-delivery-notice{background:#003f2f;color:#f6ffe1;border:1px solid #ddff93;padding:14px;border-radius:8px}
+body.pin-source-edge .pin-contact:not(:has(form)):not(:has(h2)){display:none}

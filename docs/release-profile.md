@@ -1,0 +1,9 @@
+# Standalone release profile
+
+Opt-in manifest `release` declares slug, version, author, previousThemeSlugs, blogIndex, contactPage and siteIcon. Generic FSE builds are unaffected. The release adds native single posts, archive/search/category/tag/author templates, dynamic posts on Insights, setup preview and progress, local contact form with opt-in delivery, imported SEO metadata, and site icon. The prior generated page owner can be adopted only with explicit consent; compatible content is preserved. Site Editor template overrides associated with the previous theme slug must be exported/reviewed before upgrading. Existing article pages remain pages to avoid breaking URLs. New articles are native Posts. Contact delivery is tested with mocked wp_mail; actual SMTP/host transport requires verification. No external service is configured.
+
+Lossless PNG optimization is restricted to byte-smaller results with identical RGBA pixels. Original filenames are retained because source scripts can dynamically reference assets. No unsupported claim of WebP conversion or CSS/JS pruning is made. The screenshot is captured from the installed WordPress homepage at 1200x900. Package CI requires source/editor tests and native blog, search, contact and system route browser checks. Production hosting and content/media licensing remain explicit release gates.
+
+## Shared-host setup transport
+
+The setup uses ordinary authenticated form POSTs to its WordPress admin page, not fetch/JSON. Each successful batch redirects with a user-bound continuation nonce tied to the saved cursor and migration choice. On error it stops and preserves progress. With JavaScript disabled the administrator can manually submit successive batches. The earlier admin-post endpoint remains compatible for existing clients. Theme version remains 0.0.1; setup script cache key is 1.0.2.

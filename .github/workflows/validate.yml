@@ -95,26 +95,32 @@ jobs:
       - uses: actions/checkout@v5
         with:
           repository: omarreact/meta-gray-label
-          ref: 239aefad7144fe7722c4c72d65688f40b62a771c
+          ref: ff557f64eda95c38b5c3e1f4e67c45f2cab1426a
           path: build-source/forexy
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: python -m pip install tinycss2==1.4.0
       - run: node build-source/forexy/scripts/export-forexy-fse.mjs build/forexy-source
-      - run: python scripts/build-structured-site.py --source-root build/forexy-source --out-dir build/forexy --theme-slug meta-grey-label-standalone
-      - run: python scripts/verify-structured-build.py build/forexy --expected-pages 52 --expected-theme meta-grey-label-standalone
+      - run: python scripts/build-structured-site.py --source-root build/forexy-source --out-dir build/forexy --theme-slug meta-grey-label
+      - run: python scripts/verify-structured-build.py build/forexy --expected-pages 52 --expected-theme meta-grey-label
       - name: Validate generated source profile
         run: |
-          python -c 'import json,pathlib,zipfile; p=pathlib.Path("build/forexy/meta-grey-label-standalone"); d=json.loads((p/"pin-local-pages.json").read_text()); assert len(d)==52; assert all("wp:pin/source-layout" in x["content"] for x in d); assert "page-wrapper" in (p/"templates/front-page.html").read_text(); assert (p/"source/theme-2/runtime.js").is_file(); assert zipfile.ZipFile("build/forexy/meta-grey-label-standalone.zip").testzip() is None'
-          php -l build/forexy/meta-grey-label-standalone/functions.php
-          php -l build/forexy/meta-grey-label-standalone/local-setup.php
-          php -l build/forexy/meta-grey-label-standalone/source-layout.php
-          node --check build/forexy/meta-grey-label-standalone/source-layout.js
-          node --check build/forexy/meta-grey-label-standalone/source/theme-2/runtime.js
+          python -c 'import json,pathlib,zipfile; p=pathlib.Path("build/forexy/meta-grey-label"); d=json.loads((p/"pin-local-pages.json").read_text()); assert len(d)==52; assert all("wp:pin/source-layout" in x["content"] for x in d); assert "page-wrapper" in (p/"templates/front-page.html").read_text(); assert (p/"source/theme-2/runtime.js").is_file(); assert zipfile.ZipFile("build/forexy/meta-grey-label.zip").testzip() is None'
+          php -l build/forexy/meta-grey-label/functions.php
+          php -l build/forexy/meta-grey-label/local-setup.php
+          php -l build/forexy/meta-grey-label/source-layout.php
+          node --check build/forexy/meta-grey-label/source-layout.js
+          node --check build/forexy/meta-grey-label/source/theme-2/runtime.js
+      - name: Optimize local PNGs without altering pixels
+        run: |
+          python -m pip install Pillow==11.3.0
+          python scripts/package-release.py build/forexy/meta-grey-label --optimize
+          python -c 'import pathlib,zipfile; p=pathlib.Path("build/forexy/meta-grey-label"); z=zipfile.ZipFile("build/forexy/meta-grey-label.zip","w",zipfile.ZIP_DEFLATED); [z.write(f,p.name+"/"+f.relative_to(p).as_posix()) for f in p.rglob("*") if f.is_file()]; z.close()'
       - name: Start isolated WordPress and activate generated theme
         run: |
           bash scripts/wordpress-test.sh start
-          bash scripts/wordpress-test.sh run cli wp theme install /var/www/html/wp-content/themes/pin-universal-fse/build/forexy/meta-grey-label-standalone.zip --force --activate
+          bash scripts/wordpress-test.sh run cli wp theme install /var/www/html/wp-content/themes/pin-universal-fse/build/forexy/meta-grey-label.zip --force --activate
       - name: Test local importer and real block rendering
         run: bash scripts/wordpress-test.sh run cli wp eval-file wp-content/themes/pin-universal-fse/tests/wp-source-layout.php
       - name: Compare rendered source and WordPress
@@ -124,6 +130,14 @@ jobs:
           python3 -m http.server 4174 --directory build-source/forexy >/tmp/forexy-source.log 2>&1 &
           node tests/source-layout-browser.mjs
           node tests/source-element-editor.mjs
+          node tests/forexy-editor-parity.mjs
+          node tests/release-browser.mjs
+          node tests/inner-route-qa.mjs
+          node tests/forexy-release-quality.mjs
+          node tests/forexy-component-audit.mjs
+          bash scripts/wordpress-test.sh run cli wp option delete pin_local_setup_meta-grey-label
+          node tests/setup-form-browser.mjs
+          python scripts/package-release.py build/forexy/meta-grey-label --package build/forexy/meta-grey-label-v0.0.1.zip
       - name: Upload comparison evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -137,8 +151,9 @@ jobs:
         with:
           name: meta-grey-label-forexy-fse
           path: |
-            build/forexy/meta-grey-label-standalone.zip
-            build/forexy/meta-grey-label-standalone/build-report.json
+            build/forexy/meta-grey-label-v0.0.1.zip
+            build/forexy/meta-grey-label/build-report.json
+            build/forexy/meta-grey-label/optimization-report.json
           if-no-files-found: error
 
   wordpress-integration:
