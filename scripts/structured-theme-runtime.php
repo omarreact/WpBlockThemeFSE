@@ -178,6 +178,7 @@ add_action( 'enqueue_block_assets', static function (): void {
 add_filter( 'body_class', static function ( array $classes ): array {
     $config = pin_structured_config();
     $route = (string) get_post_meta( get_queried_object_id(), '_pin_structured_route', true );
+    if ( ! empty( $config['release'] ) && ! isset( $config['pages'][ $route ] ) ) { $classes[] = 'pin-native-route'; }
     $source = $config['pages'][ $route ]['document']['body']['class'] ?? ( ! empty( $config['release'] ) ? ( $config['pages']['/']['document']['body']['class'] ?? '' ) : '' );
     foreach ( preg_split( '/\s+/', $source, -1, PREG_SPLIT_NO_EMPTY ) as $class ) {
         $classes[] = sanitize_html_class( $class );

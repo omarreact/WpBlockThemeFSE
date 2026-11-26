@@ -12,3 +12,11 @@ body.pin-source-edge .wp-block-post-content>*{margin-block-start:0}
 .editor-styles-wrapper .wp-block-pin-source-layout.swiper-wrapper{display:flex!important;flex-direction:column!important;transform:none!important;height:auto!important}
 .editor-styles-wrapper .wp-block-pin-source-layout.swiper-slide{width:100%!important;max-width:100%!important;opacity:1!important;visibility:visible!important;transform:none!important}
 .editor-styles-wrapper .wp-block-pin-source-layout.acc-content{display:block!important;height:auto!important;visibility:visible!important;opacity:1!important}
+
+/* WordPress-specific source-flow contract. Imported inner pages must not reserve a fixed-header offset. */
+body.pin-source-edge.design2-inner{background:#132c28}
+body.pin-source-edge.design2-inner .wp-site-blocks>.page-wrapper{padding-block-start:0;margin-block-start:0}
+body.pin-source-edge.design2-inner .page-wrapper>main[data-mgl2-layout]{margin-block-start:0}
+body.pin-source-edge.design2-inner.admin-bar .mgl2-header{top:32px}
+@media(max-width:782px){body.pin-source-edge.design2-inner.admin-bar .mgl2-header{top:46px}}
+@media(max-width:600px){body.pin-source-edge.design2-inner.admin-bar .mgl2-header{top:0}}

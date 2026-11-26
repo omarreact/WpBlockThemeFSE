@@ -25,3 +25,18 @@
 .pin-not-found>*{margin-bottom:20px}
 @media(max-width:860px){.pin-blog-grid{grid-template-columns:minmax(0,1fr)}.pin-editorial .wp-block-post-template.is-layout-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.pin-editorial .wp-block-post-template.is-layout-grid{grid-template-columns:minmax(0,1fr)}.pin-post-card,.pin-blog-sidebar{padding:18px}}
+
+/* Native WordPress-generated contact, blog and system routes share the source palette. */
+body.pin-source-edge .pin-editorial{background:#132c28;color:#f6ffe1;max-width:none}
+body.pin-source-edge .pin-contact{width:100%;max-width:none;background:#132c28;padding:clamp(28px,5vw,64px) max(20px,calc((100% - 1200px)/2))}
+body.pin-source-edge .pin-contact:empty{display:none}
+body.pin-source-edge .pin-editorial :is(h1,h2,h3){font-family:"Plus Jakarta Sans",Inter,Arial,sans-serif}
+body.pin-source-edge .pin-editorial :is(p,li,label){color:#b3ccc0}
+body.pin-source-edge .pin-editorial :is(input,textarea){color:#f6ffe1}
+body.pin-source-edge .pin-editorial :is(input,textarea)::placeholder{color:#b3ccc0;opacity:1}
+body.pin-source-edge.pin-native-route .mgl2-header{position:sticky;top:0;left:auto;right:auto;transform:none}
+body.pin-source-edge.pin-native-route .page-wrapper{padding-block-start:0;margin-block-start:0}
+body.pin-source-edge.pin-native-route{background:#132c28}
+body.pin-source-edge.pin-native-route.admin-bar .mgl2-header{top:32px}
+@media(max-width:782px){body.pin-source-edge.pin-native-route.admin-bar .mgl2-header{top:46px}}
+@media(max-width:600px){body.pin-source-edge.pin-native-route.admin-bar .mgl2-header{top:0}}
