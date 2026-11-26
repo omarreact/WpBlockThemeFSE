@@ -95,7 +95,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           repository: omarreact/meta-gray-label
-          ref: 1ffce7b965a35f7127010bdec13d7e1b93f1c6c2
+          ref: 1feba6b7f500708aa13fed5dc8ea5665a3d6f277
           path: build-source/forexy
       - uses: actions/setup-node@v4
         with:
