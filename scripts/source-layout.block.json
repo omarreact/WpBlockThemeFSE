@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "pin/source-layout",
+  "version": "1.1.0",
+  "title": "Source layout",
+  "category": "design",
+  "icon": "screenoptions",
+  "description": "Edit imported source markup without adding frontend wrapper elements.",
+  "textdomain": "pin-universal-fse",
+  "attributes": {
+    "tagName": {
+      "type": "string",
+      "default": "div"
+    },
+    "sourceAttrs": {
+      "type": "object",
+      "default": {}
+    }
+  },
+  "supports": {
+    "html": false,
+    "align": [
+      "wide",
+      "full"
+    ],
+    "color": {
+      "background": true,
+      "text": true,
+      "gradients": true
+    },
+    "spacing": {
+      "padding": true,
+      "margin": true
+    },
+    "typography": {
+      "fontSize": true,
+      "lineHeight": true,
+      "__experimentalFontFamily": true,
+      "__experimentalFontWeight": true,
+      "__experimentalLetterSpacing": true
+    },
+    "__experimentalBorder": {
+      "color": true,
+      "radius": true,
+      "style": true,
+      "width": true
+    },
+    "dimensions": {
+      "minHeight": true
+    },
+    "shadow": true
+  },
+  "editorScript": "pin-source-blocks-editor"
+}
