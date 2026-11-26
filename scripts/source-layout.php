@@ -48,17 +48,8 @@ add_action( 'init', static function () {
         register_block_type( $dir, array( 'render_callback' => $render ) );
     }
     wp_add_inline_script( 'pin-source-blocks-editor', 'window.pinSourceBlockMetadata=' . wp_json_encode( $metadata, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ) . ';', 'before' );
-    $config = pin_structured_config();
-    // The generic importer stays neutral. Use the exact document attributes
-    // from the opted-in Forexy release manifest, never admin page classes.
-    if ( ( $config['release']['qualityProfile'] ?? '' ) === 'forexy' ) {
-        $profile = array(
-            'home' => $config['pages']['/']['document'] ?? array(),
-            'inner' => $config['pages']['/about-us/']['document'] ?? array(),
-        );
-        wp_add_inline_script( 'pin-source-blocks-editor', 'window.pinSourceCanvasProfile=' . wp_json_encode( $profile, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ) . ';', 'before' );
-    }
+
 } );
 add_filter( 'body_class', static function ( $classes ) { $classes[] = 'pin-source-edge'; return $classes; } );
 add_action( 'wp_enqueue_scripts', static function () { wp_enqueue_style( 'pin-source-edge', get_theme_file_uri( '/source-layout.css' ), array(), pin_asset_version( get_theme_file_uri( '/source-layout.css' ) ) ); }, 100 );
-add_action( 'enqueue_block_assets', static function () { if ( is_admin() ) { wp_enqueue_style( 'pin-source-edge-editor', get_theme_file_uri( '/source-layout.css' ), array(), pin_asset_version( get_theme_file_uri( '/source-layout.css' ) ) ); } }, 100 );
+add_action( 'enqueue_block_assets', static function () { if ( is_admin() && ! is_file( get_theme_file_path( '/editor-style.css' ) ) ) { wp_enqueue_style( 'pin-source-edge-editor', get_theme_file_uri( '/source-layout.css' ), array(), pin_asset_version( get_theme_file_uri( '/source-layout.css' ) ) ); } }, 100 );

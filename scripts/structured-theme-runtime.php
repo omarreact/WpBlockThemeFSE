@@ -126,6 +126,7 @@ add_action( 'after_setup_theme', static function (): void {
     foreach ( array( 'editor-styles', 'title-tag', 'block-template-parts', 'align-wide', 'post-thumbnails' ) as $support ) {
         add_theme_support( $support );
     }
+    if ( is_file( get_theme_file_path( '/editor-style.css' ) ) ) { add_editor_style( 'editor-style.css' ); }
 } );
 
 add_action( 'wp_enqueue_scripts', static function (): void {
@@ -168,7 +169,7 @@ add_filter( 'script_loader_tag', static function ( string $tag, string $handle )
 }, 10, 2 );
 
 add_action( 'enqueue_block_assets', static function (): void {
-    if ( ! is_admin() ) {
+    if ( ! is_admin() || is_file( get_theme_file_path( '/editor-style.css' ) ) ) {
         return;
     }
     // The Site Editor can preview any page/part. Load source CSS in its canvas,

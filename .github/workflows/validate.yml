@@ -100,6 +100,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: python -m pip install tinycss2==1.4.0
       - run: node build-source/forexy/scripts/export-forexy-fse.mjs build/forexy-source
       - run: python scripts/build-structured-site.py --source-root build/forexy-source --out-dir build/forexy --theme-slug meta-grey-label
       - run: python scripts/verify-structured-build.py build/forexy --expected-pages 52 --expected-theme meta-grey-label

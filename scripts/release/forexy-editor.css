@@ -1,0 +1,21 @@
+/* Editor-only, scoped by add_editor_style(). Source content remains editable. */
+body{padding:0!important;margin:0!important;max-width:none!important;min-width:0}
+.is-root-container{max-width:none!important;width:100%;min-width:0;margin:0!important;padding:0!important}
+.is-root-container > .wp-block{max-width:none}
+:is(.wp-block-template-part,.wp-block-post-content){max-width:none!important;min-width:0;margin:0!important;padding:0!important}
+.wp-block-pin-source-layout,.wp-block-pin-source-element{min-width:0}
+.is-root-container > .wp-block-pin-source-layout{margin-block-start:0}
+.page-wrapper{max-width:none!important;min-width:0;padding-block-start:0!important;overflow:visible!important}
+.mgl2-header{position:relative!important;inset:auto!important;transform:none!important;z-index:20}
+.preloader{display:none!important}
+:is(.wow,.aos-init,.tx-split-text,.swiper [class*="animate-"]){visibility:visible!important;opacity:1!important;transform:none!important;animation:none!important;transition:none!important}
+main[data-pin-source-id="main-content"]{width:100%;max-width:none;margin:0!important;padding:0;min-width:0}
+.swiper.wp-block-pin-source-layout{overflow:visible!important;max-width:100%}
+.swiper-wrapper.wp-block-pin-source-layout{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:24px;transform:none!important;height:auto!important;max-width:100%!important}
+.swiper-slide.wp-block-pin-source-layout{width:auto!important;max-width:100%!important;min-width:0!important;opacity:1!important;visibility:visible!important;transform:none!important;height:auto!important;margin:0!important}
+.banner-swiper .swiper-wrapper,.banner-swiper-two .swiper-wrapper{grid-template-columns:1fr!important}
+.wp-block-pin-source-layout.acc-content{display:block!important;height:auto!important;visibility:visible!important;opacity:1!important;overflow:visible!important}
+.testi-swiper .swiper-slide .inner-box,.testimonial-block .inner-box{width:100%!important;max-width:100%!important;min-width:0!important}
+.testi-swiper .swiper-slide .quote,.testimonial-block .quote{inset-inline-end:16px!important}
+.wp-block-pin-source-element:is(a,button){cursor:default}
+.wp-block-pin-source-element:is(img){max-width:100%;height:auto}

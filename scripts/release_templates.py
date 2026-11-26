@@ -70,5 +70,12 @@ def install_release(theme, profile, name, wrapper):
     (theme/"templates"/"404.html").write_text(chrome(notfound),encoding="utf-8")
     tj=json.loads((theme/"theme.json").read_text())
     tj.setdefault("templateParts",[]).append({"name":"sidebar","title":"Blog sidebar","area":"uncategorized"})
+    if profile.get("qualityProfile")=="forexy":
+        # Native Global Styles and local webfonts, shared by site/editor.
+        fonts=tj["settings"]["typography"]["fontFamilies"]
+        fonts[0]["fontFace"]=[{"fontFamily":"Plus Jakarta Sans","fontStyle":"normal","fontWeight":"200 800","src":["file:./source/assets/fonts/plus-jakarta-sans-variable.ttf"]}]
+        fonts.append({"slug":"inter","name":"Inter","fontFamily":"Inter, sans-serif","fontFace":[{"fontFamily":"Inter","fontStyle":"normal","fontWeight":"100 900","src":["file:./source/assets/fonts/inter-variable.ttf"]}]})
+        from compile_editor_style import compile_editor
+        compile_editor(theme)
     (theme/"theme.json").write_text(json.dumps(tj,indent=2)+"\n",encoding="utf-8")
     (theme/"README.txt").write_text(name+"\nVersion "+profile["version"]+"\n\nWordPress 6.6+, PHP 8.1+.\nInstall on staging first. Back up database, uploads, and existing theme customizations. Activate, open Website setup, and import. For an upgrade select the explicitly marked migration option; compatible pages retain their edited content. Prior theme-specific Site Editor templates are not copied automatically; review and export them before switching. Existing editorial pages remain intact; publish new articles as Posts. The native Insights query lists posts. Contact delivery requires a verified recipient and working host mail transport. Test before enabling. WordPress core provides sitemaps; SEO plugins take precedence over theme metadata.\n\nLocal assets are retained at original filenames. Source code and media rights must be verified before redistribution; no new third-party licenses are granted by this package.\n",encoding="utf-8")

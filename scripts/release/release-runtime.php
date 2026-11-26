@@ -5,7 +5,7 @@ defined('ABSPATH') || exit;
 function pin_release_profile(){return pin_structured_config()['release']??[];}
 if((pin_release_profile()['qualityProfile']??'')==='forexy')require_once __DIR__.'/forexy-quality.php';
 add_action('wp_enqueue_scripts',static function(){wp_enqueue_style('pin-release',get_theme_file_uri('/release.css'),[],pin_asset_version(get_theme_file_uri('/release.css')));},110);
-add_action('enqueue_block_assets',static function(){if(is_admin())wp_enqueue_style('pin-release-editor',get_theme_file_uri('/release.css'),[],pin_asset_version(get_theme_file_uri('/release.css')));},110);
+add_action('enqueue_block_assets',static function(){if(is_admin()&&!is_file(get_theme_file_path('/editor-style.css')))wp_enqueue_style('pin-release-editor',get_theme_file_uri('/release.css'),[],pin_asset_version(get_theme_file_uri('/release.css')));},110);
 add_filter('query_loop_block_query_vars',static function($query,$block){
  if(($block->parsed_block['attrs']['namespace']??'')==='pin/related'&&is_singular('post')){
   $id=get_queried_object_id();$query['post__not_in']=[$id];$categories=wp_get_post_categories($id);

@@ -22,7 +22,7 @@ try{
   await page.waitForFunction(()=>wp.data.select('core/block-editor')?.getBlocks()?.some(b=>b.name==='pin/source-layout'),{},{timeout:60000});
   const frame=await (async()=>{for(let i=0;i<100;i++){const f=page.frames().find(f=>f!==page.mainFrame()&&f.url()!=='about:blank'&&f.name()==='editor-canvas');if(f)return f;const g=page.frames().find(f=>f!==page.mainFrame()&&f.name()==='editor-canvas');if(g)return g;await page.waitForTimeout(200);}throw Error('Editor canvas not found');})();
   try {
-   await frame.waitForFunction(()=>document.body.classList.contains('pin-editor-canvas')&&!!document.querySelector('main#main-content'),{},{timeout:60000});
+   await frame.waitForFunction(()=>!!document.querySelector('main[data-pin-source-id="main-content"]')&&[...document.querySelectorAll('style')].some(s=>s.textContent.includes('Generated from the same source CSS')||s.textContent.includes('data-pin-source-id')),{},{timeout:60000});
   } catch(error) {
    const diagnostics=await frame.evaluate(()=>({body:document.body?.className,html:document.documentElement.outerHTML.slice(0,500),main:[...document.querySelectorAll('main')].map(e=>({id:e.id,class:e.className})),wrappers:[...document.querySelectorAll('.editor-styles-wrapper,.is-root-container')].map(e=>({tag:e.tagName,class:e.className})),sourceBlocks:document.querySelectorAll('.wp-block-pin-source-layout').length,styles:[...document.styleSheets].map(s=>s.href).filter(Boolean)})).catch(e=>({error:String(e)}));
    evidence.push({route,error:String(error),diagnostics,profile:await page.evaluate(()=>window.pinSourceCanvasProfile||null)});
@@ -31,23 +31,23 @@ try{
   }
   await frame.evaluate(async()=>{await document.fonts.ready;});
   const editor=await frame.evaluate(()=>{
-   const main=document.querySelector('main#main-content'),h=main.querySelector('h1'),s=getComputedStyle(h),r=main.getBoundingClientRect();
+   const main=document.querySelector('main[data-pin-source-id="main-content"]'),h=main.querySelector('h1'),s=getComputedStyle(h),r=main.getBoundingClientRect();
    const imageBlocks=[...main.querySelectorAll('.wp-block-pin-source-element')].filter(e=>e.tagName==='IMG'||e.querySelector('img'));
-   return {text:h.textContent.trim(),color:s.color,font:s.fontFamily,headingSize:s.fontSize,theme:document.documentElement.dataset.bsTheme,body:document.body.className,layout:main.getAttribute('data-mgl2-layout'),width:r.width,canvas:document.documentElement.clientWidth,images:imageBlocks.length,wrappedImages:imageBlocks.filter(e=>e.tagName!=='IMG').length,sourceLinks:[...main.querySelectorAll('a.wp-block-pin-source-element,a.wp-block-pin-source-layout')].length,visible:getComputedStyle(h).visibility,opacity:s.opacity,wrapper:!!main.parentElement.closest('.page-wrapper')};
+   return {text:h.textContent.trim(),color:s.color,font:s.fontFamily,headingSize:s.fontSize,theme:document.body.classList.contains('is-dark-theme')?'dark':'light',body:document.body.className,layout:main.getAttribute('data-mgl2-layout'),width:r.width,canvas:document.documentElement.clientWidth,images:imageBlocks.length,wrappedImages:imageBlocks.filter(e=>e.tagName!=='IMG').length,sourceLinks:[...main.querySelectorAll('a.wp-block-pin-source-element,a.wp-block-pin-source-layout')].length,visible:getComputedStyle(h).visibility,opacity:s.opacity,wrapper:!!main.parentElement.closest('.page-wrapper,.is-root-container')};
   });
   evidence.push({route,live,editor});
   assert.equal(editor.theme,'dark',route+' editor theme context');assert.equal(editor.layout,live.layout,route+' source attributes');
   assert.equal(editor.text,live.text,route+' primary heading');assert.equal(editor.color,live.color,route+' heading foreground');assert.equal(editor.font,live.font,route+' font family');
   assert(editor.wrapper,route+' page wrapper missing');assert(editor.width>=editor.canvas*.88,route+' editor constrained width '+JSON.stringify(editor));
-  assert.equal(editor.wrappedImages,0,route+' extra image wrappers');assert.equal(editor.visible,'visible',route+' hidden heading');assert.equal(editor.opacity,'1',route+' hidden heading opacity');
+  assert.equal(editor.wrappedImages,0,route+' extra image wrappers');assert(!editor.body.includes('pin-editor-canvas'),route+' must not mutate canvas body');assert.equal(editor.visible,'visible',route+' hidden heading');assert.equal(editor.opacity,'1',route+' hidden heading opacity');
   await page.screenshot({path:out+'/'+(route==='/'?'home':route.split('/')[1])+'-page-editor.png',animations:'disabled'});
  }
  // The site editor must also apply document context to an editable template.
  await page.goto(origin+'/wp-admin/site-editor.php?postType=wp_template&postId=meta-grey-label%2F%2Ffront-page&canvas=edit');
- await page.waitForFunction(()=>[...document.querySelectorAll('iframe')].some(f=>{try{return f.contentDocument?.body?.classList.contains('pin-editor-canvas')}catch{return false}}),{},{timeout:90000});
+ await page.waitForFunction(()=>[...document.querySelectorAll('iframe')].some(f=>{try{return f.contentDocument?.querySelector('.mgl2-header')&&f.contentDocument?.querySelector('.page-wrapper')}catch{return false}}),{},{timeout:90000});
  const sf=page.frames().find(f=>f.name()==='editor-canvas');
  assert(sf,'Site Editor iframe not available');
- const site=await sf.evaluate(()=>({theme:document.documentElement.dataset.bsTheme,header:!!document.querySelector('.mgl2-header'),wrapper:!!document.querySelector('.page-wrapper')}));
+ const site=await sf.evaluate(()=>({theme:document.body.classList.contains('is-dark-theme')?'dark':'light',header:!!document.querySelector('.mgl2-header'),wrapper:!!document.querySelector('.page-wrapper')}));
  assert(site.theme==='dark'&&site.header&&site.wrapper,'Site Editor source context incomplete '+JSON.stringify(site));
  evidence.push({route:'site-editor/front-page',site});await page.screenshot({path:out+'/site-editor.png',animations:'disabled'});
  console.log('PASS: real Gutenberg Page Editor source tag, theme, heading, width and image parity on 5 routes; Site Editor front-page context.');
