@@ -29,6 +29,16 @@ def install_release(theme, profile, name, wrapper):
     files=pathlib.Path(__file__).parent/"release"
     for fn in ("release-runtime.php","release.css","setup.css"):
         shutil.copyfile(files/fn,theme/fn)
+    if profile.get("qualityProfile") == "forexy":
+        shutil.copyfile(files/"forexy-quality.php",theme/"forexy-quality.php")
+        with (theme/"release.css").open("a",encoding="utf-8") as handle:
+            handle.write((files/"forexy-quality.css").read_text(encoding="utf-8"))
+        runtime=theme/"source"/"theme-2"/"runtime.js"
+        js=runtime.read_text(encoding="utf-8")
+        marker="    enquiryForm.addEventListener('submit', function (event) {\n        event.preventDefault();"
+        if js.count(marker)!=1: raise ValueError("Forexy contact runtime contract changed")
+        js=js.replace(marker,(files/"forexy-contact-submit.js").read_text(encoding="utf-8").rstrip(),1)
+        runtime.write_text(js,encoding="utf-8")
     header=comment("template-part",{"slug":"header"})
     footer=comment("template-part",{"slug":"footer"})
     def chrome(main):

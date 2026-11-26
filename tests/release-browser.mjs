@@ -12,7 +12,7 @@ try{
  await page.screenshot({path:'build/forexy/meta-grey-label/screenshot.png',animations:'disabled'});
  for(const width of [360,390,768,1024,1180,1440,1920]){
   await page.setViewportSize({width,height:900});
-  for(const [path,selector] of [['/pin-release-blog/','.pin-single'],['/insights/','.pin-blog-list'],['/?s=PIN','.pin-archive'],['/pin-nonexistent-404/','.pin-not-found'],['/contact/','.pin-contact']]){
+  for(const [path,selector] of [['/pin-release-blog/','.pin-single'],['/insights/','.pin-blog-list'],['/?s=PIN','.pin-archive'],['/pin-nonexistent-404/','.pin-not-found'],['/contact/','#mgl-enquiry-form']]){
    const res=await page.goto(root+path,{waitUntil:'domcontentloaded'});await page.locator(selector).first().waitFor();
    assert.equal(res.status(),path.includes('nonexistent')?404:200,path);
    assert(await page.locator('.mgl2-header').count(),path+' missing header');
@@ -20,7 +20,7 @@ try{
    assert(overflow<=2,path+' width '+width+' overflow '+overflow);
    if(path==='/pin-release-blog/')assert(await page.getByText('Native blog fixture body.').count(), 'Blog body absent');
    if(path==='/insights/')assert(await page.getByText('PIN release blog fixture',{exact:true}).count(),'Dynamic article absent');
-   if(path==='/contact/')assert(await page.locator('form input[name="action"][value="pin_release_enquiry"]').count(),'Native form absent');
+   if(path==='/contact/'){assert.equal(await page.locator('form input[name="action"][value="pin_release_enquiry"]').count(),1,'Expected exactly one enquiry workflow');assert.equal(await page.locator('#mgl-enquiry-form [name="pin_send"]').count(),1);}
    evidence.push({path,width,status:res.status(),overflow});
   }
  }

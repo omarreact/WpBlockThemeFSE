@@ -99,6 +99,14 @@ function pin_structured_bundle(): array {
     );
 }
 
+/** Fingerprint local assets even when the approved public version stays fixed. */
+function pin_asset_version($url): string {
+    static $cache=[];
+    if(isset($cache[$url]))return $cache[$url];
+    $base=trailingslashit(get_theme_file_uri());
+    $file=str_starts_with($url,$base)?get_theme_file_path('/'.substr($url,strlen($base))):'';
+    return $cache[$url]=is_file($file)?substr(hash_file('sha256',$file),0,12):wp_get_theme()->get('Version');
+}
 function pin_structured_enqueue_css( array $entries ): void {
     $seen = array();
     $previous = array();
@@ -109,7 +117,7 @@ function pin_structured_enqueue_css( array $entries ): void {
             continue;
         }
         $seen[ $handle ] = true;
-        wp_enqueue_style( $handle, $url, $previous, wp_get_theme()->get( 'Version' ), $entry['media'] );
+        wp_enqueue_style( $handle, $url, $previous, pin_asset_version($url), $entry['media'] );
         $previous = array( $handle );
     }
 }
@@ -140,7 +148,7 @@ add_action( 'wp_enqueue_scripts', static function (): void {
         } elseif ( $entry['defer'] ) {
             $args['strategy'] = 'defer';
         }
-        wp_enqueue_script( $handle, $url, $previous, wp_get_theme()->get( 'Version' ), $args );
+        wp_enqueue_script( $handle, $url, $previous, pin_asset_version($url), $args );
         if ( $entry['module'] ) {
             wp_script_add_data( $handle, 'pin_module', true );
         }

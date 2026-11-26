@@ -95,7 +95,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           repository: omarreact/meta-gray-label
-          ref: f68d397ce1eae9e512528ccc6c16522275d8ec97
+          ref: 223a3615c7f726f742ad0e5aca9ce947a65ba179
           path: build-source/forexy
       - uses: actions/setup-node@v4
         with:
@@ -131,6 +131,7 @@ jobs:
           node tests/source-element-editor.mjs
           node tests/release-browser.mjs
           node tests/inner-route-qa.mjs
+          node tests/forexy-release-quality.mjs
           bash scripts/wordpress-test.sh run cli wp option delete pin_local_setup_meta-grey-label
           node tests/setup-form-browser.mjs
           python scripts/package-release.py build/forexy/meta-grey-label --package build/forexy/meta-grey-label-v0.0.1.zip

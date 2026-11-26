@@ -76,4 +76,9 @@ source_assert(pin_release_enquiry_send(['name'=>'QA','email'=>'qa@example.invali
 source_assert(!pin_release_enquiry_send(['name'=>'QA','email'=>'invalid','message'=>'Fixture only']),'Invalid email accepted');
 source_assert(!pin_release_enquiry_send(['name'=>'QA','email'=>['invalid'],'message'=>'Fixture only']),'Array email accepted');
 source_assert(!pin_release_enquiry_send(['name'=>'QA','email'=>'qa@example.invalid','message'=>'Fixture','website'=>'spam']),'Honeypot bypass');
+$brief=['pin_send'=>'1','name'=>'QA','contact'=>'qa@example.invalid','model'=>'Grey Label','platform'=>'MT5','message'=>'Fixture only'];
+source_assert(pin_release_enquiry_send(pin_forexy_structured_input($brief)),'Structured enquiry failed');
+foreach(['contact','model','platform'] as $key){$bad=$brief;unset($bad[$key]);source_assert(pin_forexy_structured_input($bad)===false,'Missing required field accepted');}
+$bad=$brief;$bad['pin_send']='0';source_assert(pin_forexy_structured_input($bad)===false,'Prepare action may send mail');
+$bad=$brief;$bad['message']=[];source_assert(pin_forexy_structured_input($bad)===false,'Invalid input accepted');
 echo "PASS: release identity, 52 native pages, protected conflicts, explicit legacy migration, native blog templates, SEO metadata, icon, mocked mail and editable elements.\n";

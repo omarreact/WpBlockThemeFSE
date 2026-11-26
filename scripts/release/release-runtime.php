@@ -3,8 +3,9 @@
 defined('ABSPATH') || exit;
 
 function pin_release_profile(){return pin_structured_config()['release']??[];}
-add_action('wp_enqueue_scripts',static function(){wp_enqueue_style('pin-release',get_theme_file_uri('/release.css'),[],wp_get_theme()->get('Version'));},110);
-add_action('enqueue_block_assets',static function(){if(is_admin())wp_enqueue_style('pin-release-editor',get_theme_file_uri('/release.css'),[],wp_get_theme()->get('Version'));},110);
+if((pin_release_profile()['qualityProfile']??'')==='forexy')require_once __DIR__.'/forexy-quality.php';
+add_action('wp_enqueue_scripts',static function(){wp_enqueue_style('pin-release',get_theme_file_uri('/release.css'),[],pin_asset_version(get_theme_file_uri('/release.css')));},110);
+add_action('enqueue_block_assets',static function(){if(is_admin())wp_enqueue_style('pin-release-editor',get_theme_file_uri('/release.css'),[],pin_asset_version(get_theme_file_uri('/release.css')));},110);
 add_filter('query_loop_block_query_vars',static function($query,$block){
  if(($block->parsed_block['attrs']['namespace']??'')==='pin/related'&&is_singular('post')){
   $id=get_queried_object_id();$query['post__not_in']=[$id];$categories=wp_get_post_categories($id);
@@ -80,7 +81,7 @@ function pin_release_enquiry_send($input){
 function pin_release_enquiry_handler(){
  check_admin_referer('pin_release_enquiry');
  $ip=wp_unslash($_SERVER['REMOTE_ADDR']??'unknown');$key='pin_enq_'.substr(hash_hmac('sha256',$ip,wp_salt('nonce')),0,32);
- $ok=false;if(!get_transient($key)){set_transient($key,1,60);$ok=pin_release_enquiry_send(wp_unslash($_POST));}
+ $ok=false;if(!get_transient($key)){set_transient($key,1,60);$input=wp_unslash($_POST);if(($input['mgl_structured']??'')==='1')$input=function_exists('pin_forexy_structured_input')?pin_forexy_structured_input($input):false;$ok=is_array($input)&&pin_release_enquiry_send($input);}
  $route=pin_release_profile()['contactPage']??'contact';
  wp_safe_redirect(add_query_arg('enquiry',$ok?'sent':'failed',home_url('/'.$route.'/')));exit;
 }
