@@ -158,6 +158,12 @@ class Builder:
         self.wrapper_class = str(self.source_layout.get("wrapperClass") or "")
         if self.wrapper_class and not re.fullmatch(r"[A-Za-z0-9_-]+(?: [A-Za-z0-9_-]+)*", self.wrapper_class):
             raise ValueError("Invalid source wrapper class")
+        legacy = self.source_layout.get("legacyPage")
+        if legacy is not None:
+            if not isinstance(legacy, dict) or set(legacy) != {"ownerKey","ownerValue","slugKey"}:
+                raise ValueError("Invalid explicit legacyPage ownership contract")
+            if any(not isinstance(legacy[k], str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,100}",legacy[k]) for k in legacy):
+                raise ValueError("Invalid legacyPage metadata")
         self.pages = self._pages()
         self.routes = {p["path"] for p in self.pages}
         self.file_routes = {safe_rel(str(p["file"])): p["path"] for p in self.pages if p.get("file")}
@@ -613,7 +619,7 @@ class Builder:
         shutil.copyfile(pathlib.Path(__file__).with_name("structured-theme-runtime.php"), self.theme / "functions.php")
         config = {"slug": self.slug, "asset_prefix": self.prefix, "pages": self.page_assets, "shared": shared, "source_layout": self.source_layout}
         if self.edge:
-            for name in ("source-layout.php","source-layout.js","source-layout.css","local-setup.php"):
+            for name in ("source-layout.php","source-layout.js","source-layout.css","local-setup.php","local-setup.js"):
                 shutil.copyfile(pathlib.Path(__file__).with_name(name), self.theme / name)
             local_pages = [{"route":p["path"],"slug":route_slug(p["path"]),"parent":p["parent_route"],"title":str(p.get("title") or route_slug(p["path"]).title()),"content":p["blocks"]} for p in generated]
             (self.theme / "pin-local-pages.json").write_text(json.dumps(local_pages, ensure_ascii=False), encoding="utf-8")

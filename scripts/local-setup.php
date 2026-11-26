@@ -3,6 +3,7 @@ defined('ABSPATH') || exit;
 /* Local source setup; no network, plugin installation or database reset. */
 function pin_local_pages(){static $pages=null;if($pages===null)$pages=json_decode((string)file_get_contents(__DIR__.'/pin-local-pages.json'),true)?:[];return $pages;}
 function pin_local_option(){return 'pin_local_setup_'.sanitize_key(pin_structured_config()['slug']);}
+add_action('admin_enqueue_scripts',static function($hook){if($hook==='toplevel_page_pin-local-setup')wp_enqueue_script('pin-local-setup',get_theme_file_uri('/local-setup.js'),[],'1.0.1',true);});
 add_action('after_switch_theme',static function(){update_option(pin_local_option().'_redirect',true,false);});
 add_action('admin_init',static function(){
  if(!current_user_can('manage_options')||wp_doing_ajax()||!get_option(pin_local_option().'_redirect'))return;
@@ -20,7 +21,8 @@ function pin_local_screen(){
  else{
  echo '<form id="pin-local-import" method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="pin_local_import">';
  wp_nonce_field('pin_local_import');
- echo '<p><label><input type="checkbox" name="replace_legacy" value="1"> Replace pages owned by the previous generated design (WordPress revisions retained where available).</label></p><button class="button button-primary">Import &amp; Launch Website</button></form><p id="pin-local-progress" aria-live="polite"></p>';
+ if(!empty(pin_structured_config()['source_layout']['legacyPage']))echo '<p><label><input type="checkbox" name="replace_legacy" value="1"> Replace pages owned by the previous generated design (WordPress revisions retained where available).</label></p>';
+ echo '<button class="button button-primary">Import &amp; Launch Website</button></form><p id="pin-local-progress" aria-live="polite"></p>';
  }
  echo '</div>';
 }
@@ -37,7 +39,8 @@ function pin_local_import_batch($replace_legacy=false){
   $page=get_page_by_path($path,OBJECT,'page');
   if($page){
    $owned=get_post_meta($page->ID,'_pin_structured_theme',true)===$slug&&get_post_meta($page->ID,'_pin_structured_route',true)===$route;
-   $legacy=get_post_meta($page->ID,'_mglfse_design',true)==='theme-2'&&get_post_meta($page->ID,'_mglfse_slug',true)===($route==='/'?'home':$p['slug']);
+   $contract=pin_structured_config()['source_layout']['legacyPage']??[];
+   $legacy=isset($contract['ownerKey'],$contract['ownerValue'],$contract['slugKey'])&&get_post_meta($page->ID,$contract['ownerKey'],true)===$contract['ownerValue']&&get_post_meta($page->ID,$contract['slugKey'],true)===($route==='/'?'home':$p['slug']);
    if(!$owned&&!($replace_legacy&&$legacy))return new WP_Error('pin_conflict','Existing page conflict: '.$path.'. Existing content preserved.');
    $id=(int)$page->ID;
    if(!$owned&&$legacy){
@@ -57,17 +60,28 @@ function pin_local_import_batch($replace_legacy=false){
   if(empty($ids['/']))return new WP_Error('pin_home','Missing home page.');
   update_option('show_on_front','page');update_option('page_on_front',$ids['/']);
   global $wp_rewrite;$wp_rewrite->set_permalink_structure('/%postname%/');flush_rewrite_rules(false);
+  if(in_array(get_option('blogname'),['My Blog',''],true))update_option('blogname',wp_get_theme()->get('Name'));
   $state['done']=true;update_option($key,$state,false);
  }
  return $state;
 }
 add_action('admin_post_pin_local_import',static function(){
- if(!current_user_can('manage_options'))wp_die('Forbidden',403);
+ if(!current_user_can('manage_options'))wp_die('Forbidden','',['response'=>403]);
  check_admin_referer('pin_local_import');
+ $json=isset($_POST['pin_json'])&&$_POST['pin_json']==='1';
  $lock=pin_local_option().'_lock';
- if(!add_option($lock,time(),'','no'))wp_die('Another import request is running.',409);
+ $held=get_option($lock);
+ if($held&&time()-(int)$held>300)delete_option($lock);
+ if(!add_option($lock,time(),'','no')){
+   if($json)wp_send_json_error(['message'=>'Another import request is running.'],409);
+   wp_die('Another import request is running.','',['response'=>409]);
+ }
  try{$state=pin_local_import_batch(!empty($_POST['replace_legacy']));
  if(is_wp_error($state)){$old=get_option(pin_local_option(),[]);$old['error']=$state->get_error_message();update_option(pin_local_option(),$old,false);}
  }finally{delete_option($lock);}
+ if($json){
+   if(is_wp_error($state))wp_send_json_error(['message'=>$state->get_error_message()],409);
+   wp_send_json_success(['cursor'=>(int)$state['cursor'],'total'=>count(pin_local_pages()),'done'=>!empty($state['done'])]);
+ }
  wp_safe_redirect(admin_url('admin.php?page=pin-local-setup'));exit;
 });

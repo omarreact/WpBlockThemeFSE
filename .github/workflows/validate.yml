@@ -95,7 +95,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           repository: omarreact/meta-gray-label
-          ref: 3c2e5d34ed7d343b57be0d81576f9b3dfc1d7608
+          ref: 9a9b6a65e2fdf3bc4d0956bafd580ad6b565ebcc
           path: build-source/forexy
       - uses: actions/setup-node@v4
         with:
@@ -111,6 +111,27 @@ jobs:
           php -l build/forexy/meta-grey-label-standalone/source-layout.php
           node --check build/forexy/meta-grey-label-standalone/source-layout.js
           node --check build/forexy/meta-grey-label-standalone/source/theme-2/runtime.js
+      - name: Start isolated WordPress and activate generated theme
+        run: |
+          bash scripts/wordpress-test.sh start
+          bash scripts/wordpress-test.sh run cli wp theme install /var/www/html/wp-content/themes/pin-universal-fse/build/forexy/meta-grey-label-standalone.zip --force --activate
+      - name: Test local importer and real block rendering
+        run: bash scripts/wordpress-test.sh run cli wp eval-file wp-content/themes/pin-universal-fse/tests/wp-source-layout.php
+      - name: Compare rendered source and WordPress
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4174 --directory build-source/forexy >/tmp/forexy-source.log 2>&1 &
+          node tests/source-layout-browser.mjs
+      - name: Upload comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forexy-parity-evidence
+          path: build/forexy-parity
+      - name: Stop isolated WordPress
+        if: always()
+        run: bash scripts/wordpress-test.sh stop
       - uses: actions/upload-artifact@v4
         with:
           name: meta-grey-label-forexy-fse
@@ -211,6 +232,7 @@ jobs:
       - validate
       - wordpress-integration
       - structured-build-meta-gray-label
+      - forexy-edge-source
     steps:
       - name: Checkout
         uses: actions/checkout@v5
