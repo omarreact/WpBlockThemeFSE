@@ -83,7 +83,7 @@ function pin_forexy_normalize_content($markup) {
     // leaving the database and custom template content untouched.
     if(is_front_page()){
         $markup=preg_replace('~<h([45])(\s+class="(?:trading-block_one-title|title|name)")>(.*?)</h\1>~is','<h3$2>$3</h3>',$markup);
-        $markup=preg_replace('~<h5(\s+class="title tx-split-text split-in-left")>(.*?)</h5>~is','<h2$1>$2</h2>',$markup);
+        $markup=preg_replace('~<h5(\s+class="title tx-split-text split-in-left"\s*)>(.*?)</h5>~is','<h2$1>$2</h2>',$markup);
         $markup=preg_replace('~<h4>(\s*A connected.*?)</h4>~is','<h3>$1</h3>',$markup);
     }else{
         $markup=preg_replace_callback('~(<h1\b[^>]*>.*?</h1>)(.*?)(<h3\b[^>]*>)(.*?)</h3>~is',static function($m){
