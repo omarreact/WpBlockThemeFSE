@@ -48,7 +48,7 @@ function pin_release_setup_screen(){
 }
 add_action('admin_post_pin_release_contact_settings',static function(){
  if(!current_user_can('manage_options'))wp_die('Forbidden','',['response'=>403]);check_admin_referer('pin_release_contact_settings');
- $email=sanitize_email(wp_unslash($_POST['recipient']??''));
+ $raw=wp_unslash($_POST['recipient']??'');$email=is_string($raw)?sanitize_email($raw):'';
  update_option('pin_release_recipient',is_email($email)?$email:'',false);
  update_option('pin_release_contact_enabled',!empty($_POST['enabled'])&&is_email($email),false);
  wp_safe_redirect(admin_url('admin.php?page=pin-local-setup'));exit;
@@ -56,7 +56,7 @@ add_action('admin_post_pin_release_contact_settings',static function(){
 add_shortcode('pin_release_contact',static function(){
  $enabled=get_option('pin_release_contact_enabled')&&is_email(get_option('pin_release_recipient',''));
  if(!$enabled)return '';
- $status=sanitize_key(wp_unslash($_GET['enquiry']??''));
+ $raw=wp_unslash($_GET['enquiry']??'');$status=is_string($raw)?sanitize_key($raw):'';
  ob_start();?>
  <h2>Send an enquiry</h2>
  <?php if($status==='sent'):?><p role="status">Your enquiry was accepted by the website mail system.</p><?php elseif($status==='failed'):?><p role="alert">Delivery could not be confirmed. Please try again later.</p><?php endif;?>
@@ -72,7 +72,8 @@ add_shortcode('pin_release_contact',static function(){
 function pin_release_enquiry_send($input){
  if(!get_option('pin_release_contact_enabled'))return false;
  $to=get_option('pin_release_recipient','');if(!is_email($to)||!empty($input['website']))return false;
- $name=sanitize_text_field($input['name']??'');$email=sanitize_email($input['email']??'');$message=sanitize_textarea_field($input['message']??'');
+ foreach(['name','email','message'] as $field)if(!isset($input[$field])||!is_string($input[$field]))return false;
+ $name=sanitize_text_field($input['name']);$email=sanitize_email($input['email']);$message=sanitize_textarea_field($input['message']);
  if(!$name||!is_email($email)||!$message||strlen($name)>120||strlen($message)>4000)return false;
  return wp_mail($to,'Website enquiry — '.wp_get_theme()->get('Name'),"Name: $name\nEmail: $email\n\n$message",['Reply-To: '.$email]);
 }

@@ -58,6 +58,10 @@ source_assert(str_contains(do_blocks($fixture),'<p class="fixture-text">Original
 $bad='<!-- wp:pin/source-element {"tagName":"script","sourceAttrs":{"onclick":"alert(1)"},"content":"<img onerror=alert(1)>"} /-->';
 $rendered=do_blocks($bad);source_assert(!str_contains($rendered,'<script')&&!str_contains($rendered,'<img')&&!str_contains($rendered,'onclick='),'Unsafe source attributes were rendered');
 source_assert(wp_get_theme()->get('Version')==='0.0.1','Release version mismatch');
+$asset=trailingslashit(get_theme_file_uri('/source')).'assets/example.png';
+source_assert(pin_structured_urls($asset)===$asset,'Already resolved URL was rewritten twice');
+source_assert(pin_structured_urls('/wp-content/themes/meta-grey-label-standalone/source/assets/example.png')===$asset,'Legacy relative asset not migrated');
+source_assert(pin_structured_urls(content_url('/themes/meta-grey-label-standalone/source/assets/example.png'))===$asset,'Legacy absolute asset not migrated');
 source_assert((bool)get_post_meta($existing,'_pin_import_seo_title',true),'SEO metadata not imported');
 source_assert((bool)get_option('site_icon'),'Site icon not imported');
 source_assert((bool)get_option(pin_local_option().'_before'),'Settings snapshot missing');
@@ -70,5 +74,6 @@ update_option('pin_release_recipient','qa@example.invalid');update_option('pin_r
 add_filter('pre_wp_mail',static function($pre,$atts){source_assert($atts['to']==='qa@example.invalid','Wrong recipient');return true;},10,2);
 source_assert(pin_release_enquiry_send(['name'=>'QA','email'=>'qa@example.invalid','message'=>'Fixture only']),'Mail handler fixture failed');
 source_assert(!pin_release_enquiry_send(['name'=>'QA','email'=>'invalid','message'=>'Fixture only']),'Invalid email accepted');
+source_assert(!pin_release_enquiry_send(['name'=>'QA','email'=>['invalid'],'message'=>'Fixture only']),'Array email accepted');
 source_assert(!pin_release_enquiry_send(['name'=>'QA','email'=>'qa@example.invalid','message'=>'Fixture','website'=>'spam']),'Honeypot bypass');
 echo "PASS: release identity, 52 native pages, protected conflicts, explicit legacy migration, native blog templates, SEO metadata, icon, mocked mail and editable elements.\n";

@@ -38,15 +38,18 @@ function pin_structured_urls( $value ) {
     if ( ! is_string( $value ) ) {
         return $value;
     }
+    // Markers are resolved exactly once, including content that has already been
+    // opened and saved in Gutenberg. Do not replace the path inside absolute URLs.
+    $target = trailingslashit( get_theme_file_uri( '/source' ) );
+    $prefixes = array( pin_structured_config()['asset_prefix'] );
     foreach ( pin_structured_config()['release']['previousThemeSlugs'] ?? array() as $legacy ) {
-        $old = content_url( '/themes/' . $legacy . '/source/' );
-        $value = str_replace( $old, trailingslashit( get_theme_file_uri( '/source' ) ), $value );
+        $prefixes[] = '/wp-content/themes/' . $legacy . '/source/';
+        $value = str_replace( content_url( '/themes/' . $legacy . '/source/' ), $target, $value );
     }
-    $value = str_replace(
-        array_merge( array( pin_structured_config()['asset_prefix'], '__PIN_THEME__/' ), array_map( static function ( $slug ) { return '/wp-content/themes/' . $slug . '/source/'; }, pin_structured_config()['release']['previousThemeSlugs'] ?? array() ) ),
-        array_merge( array( trailingslashit( get_theme_file_uri( '/source' ) ), trailingslashit( get_theme_file_uri() ) ), array_fill( 0, count( pin_structured_config()['release']['previousThemeSlugs'] ?? array() ), trailingslashit( get_theme_file_uri( '/source' ) ) ) ),
-        $value
-    );
+    foreach ( $prefixes as $prefix ) {
+        $value = preg_replace_callback( '~(?<![A-Za-z0-9_:/.-])' . preg_quote( $prefix, '~' ) . '~', static function () use ( $target ) { return $target; }, $value );
+    }
+    $value = str_replace( '__PIN_THEME__/', trailingslashit( get_theme_file_uri() ), $value );
     if ( false === strpos( $value, '/__pin_route__/' ) ) {
         return $value;
     }
@@ -175,7 +178,7 @@ add_action( 'enqueue_block_assets', static function (): void {
 add_filter( 'body_class', static function ( array $classes ): array {
     $config = pin_structured_config();
     $route = (string) get_post_meta( get_queried_object_id(), '_pin_structured_route', true );
-    $source = $config['pages'][ $route ]['document']['body']['class'] ?? '';
+    $source = $config['pages'][ $route ]['document']['body']['class'] ?? ( ! empty( $config['release'] ) ? ( $config['pages']['/']['document']['body']['class'] ?? '' ) : '' );
     foreach ( preg_split( '/\s+/', $source, -1, PREG_SPLIT_NO_EMPTY ) as $class ) {
         $classes[] = sanitize_html_class( $class );
     }
