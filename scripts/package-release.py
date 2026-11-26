@@ -19,6 +19,34 @@ def optimize(theme):
                 if check.size!=im.size or check.convert("RGBA").tobytes()!=im.convert("RGBA").tobytes(): continue
             p.write_bytes(new)
             report["png_optimized"]+=1;report["bytes_saved"]+=len(original)-len(new)
+    config=json.loads((theme/"pin-build.json").read_text())
+    if config.get("release",{}).get("qualityProfile")=="forexy":
+        variants={}
+        for rel in ("design2-resource-about-1.jpg","design2-resource-about-2.jpg","design2-resource-forex.jpg","design2-resource-app.png","design2-resource-app-1.png"):
+            original=theme/"source"/"assets"/"media"/rel
+            if not original.is_file(): raise ValueError("Missing responsive image: "+rel)
+            with Image.open(original) as im:
+                candidates=[]
+                for width in (320,480,640,960):
+                    if width>=im.width: continue
+                    height=round(im.height*width/im.width)
+                    resized=im.resize((width,height),Image.Resampling.LANCZOS)
+                    # Keep original format as fallback; WebP is a separately
+                    # generated, browser-selectable alternative, not a renamed file.
+                    buf=io.BytesIO()
+                    resized.save(buf,format="WEBP",quality=88,method=6)
+                    if len(buf.getvalue())>=original.stat().st_size: continue
+                    name=original.stem+"-"+str(width)+"w.webp"
+                    dest=original.parent/name;dest.write_bytes(buf.getvalue())
+                    with Image.open(dest) as verified:
+                        assert verified.size==(width,height)
+                        verified.load()
+                    candidates.append({"file":name,"width":width,"height":height,"bytes":dest.stat().st_size})
+                if candidates:
+                    variants[rel]={"width":im.width,"height":im.height,"variants":candidates}
+        (theme/"responsive-media.json").write_text(json.dumps(variants,indent=2)+"\n")
+        report["responsive_variants"]=sum(len(v["variants"]) for v in variants.values())
+        report["responsive_variant_bytes"]=sum(x["bytes"] for v in variants.values() for x in v["variants"])
     (theme/"optimization-report.json").write_text(json.dumps(report,indent=2)+"\n")
     print(json.dumps(report))
 def package(theme,output):

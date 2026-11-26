@@ -79,17 +79,40 @@ function pin_forexy_normalize_content($markup) {
         return '<nav'.$m[1].' aria-label="Breadcrumb">'.$body.'</nav>';
     },$markup);
     $sizes=['design2-resource-about-1.jpg'=>[604,604],'design2-resource-about-2.jpg'=>[303,356],'design2-resource-about-stats.png'=>[303,156],'design2-background-trading-bg.png'=>[370,434],'design2-resource-forex.jpg'=>[831,534],'design2-resource-app.png'=>[823,473],'design2-resource-app-1.png'=>[375,518],'images/blog/1.png'=>[326,195],'images/blog/2.png'=>[326,195],'images/blog/3.png'=>[326,194]];
+    // Apply the same audited heading semantics on already imported pages,
+    // leaving the database and custom template content untouched.
+    if(is_front_page()){
+        $markup=preg_replace('~<h([45])(\s+class="(?:trading-block_one-title|title|name)")>(.*?)</h\1>~is','<h3$2>$3</h3>',$markup);
+        $markup=preg_replace('~<h5(\s+class="title tx-split-text split-in-left")>(.*?)</h5>~is','<h2$1>$2</h2>',$markup);
+        $markup=preg_replace('~<h4>(\s*A connected.*?)</h4>~is','<h3>$1</h3>',$markup);
+    }else{
+        $markup=preg_replace_callback('~(<h1\b[^>]*>.*?</h1>)(.*?)(<h3\b[^>]*>)(.*?)</h3>~is',static function($m){
+            return preg_match('~<h2\b~i',$m[2])?$m[0]:$m[1].$m[2].preg_replace('~^<h3~i','<h2',$m[3]).$m[4].'</h2>';
+        },$markup,1);
+    }
+    $markup=preg_replace('~<h([1-6])\b[^>]*>\s*</h\1>~i','',$markup);
+    static $variants=null;
+    if($variants===null){$file=get_theme_file_path('/responsive-media.json');$variants=is_readable($file)?(json_decode(file_get_contents($file),true)?:[]):[];}
     $p=new WP_HTML_Tag_Processor($markup);
     while($p->next_tag('IMG')){
         $src=$p->get_attribute('src');if(!is_string($src))continue;
         $path=parse_url($src,PHP_URL_PATH);if(!is_string($path))continue;
         $i=strpos($path,'/assets/media/');if($i===false)continue;
         $key=substr($path,$i+strlen('/assets/media/'));
-        if(!isset($sizes[$key])||$p->get_attribute('width')!==null||$p->get_attribute('height')!==null)continue;
         // Only size original known assets. Media Library replacements are not rewritten.
         if(strpos($path,'/source/assets/media/')===false)continue;
-        $p->set_attribute('width',(string)$sizes[$key][0]);$p->set_attribute('height',(string)$sizes[$key][1]);
+        if(isset($sizes[$key])&&$p->get_attribute('width')===null&&$p->get_attribute('height')===null){
+            $p->set_attribute('width',(string)$sizes[$key][0]);$p->set_attribute('height',(string)$sizes[$key][1]);
+        }
         if($p->get_attribute('decoding')===null)$p->set_attribute('decoding','async');
+        if(isset($variants[$key])&&$p->get_attribute('srcset')===null){
+            $base=trailingslashit(get_theme_file_uri('/source/assets/media'));
+            $candidates=[];
+            foreach($variants[$key]['variants'] as $v)$candidates[]=$base.$v['file'].' '.(int)$v['width'].'w';
+            $candidates[]=$src.' '.(int)$variants[$key]['width'].'w';
+            $p->set_attribute('srcset',implode(', ',$candidates));
+            $p->set_attribute('sizes',is_front_page()?'(max-width: 767px) 100vw, 50vw':'(max-width: 767px) 100vw, 800px');
+        }
     }
     return $p->get_updated_html();
 }

@@ -38,10 +38,11 @@ try{
      const min=parseFloat(s.fontSize)>=24||parseFloat(s.fontSize)>=18.66&&Number(s.fontWeight)>=700?3:4.5;
      if(ratio<min)candidates.push({tag:e.tagName,text:text.slice(0,90),ratio:Math.round(ratio*100)/100,minimum:min});
     }
-    return {h1:main.querySelectorAll('h1').length,overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,gap:hero?hero.getBoundingClientRect().top-header.getBoundingClientRect().bottom:null,missingImages:[...main.querySelectorAll('img')].filter(e=>e.complete&&e.naturalWidth===0&&e.getAttribute('src')).map(e=>e.getAttribute('src')),candidates};
+    const headings=[...main.querySelectorAll('h1,h2,h3,h4,h5,h6')];let prior=0;const headingErrors=[];for(const h of headings){const level=Number(h.tagName.slice(1));if(!h.textContent.trim()||prior&&level>prior+1)headingErrors.push(h.tagName+' '+h.textContent.trim().slice(0,60));prior=level;}
+    return {headingErrors,h1:main.querySelectorAll('h1').length,overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,gap:hero?hero.getBoundingClientRect().top-header.getBoundingClientRect().bottom:null,missingImages:[...main.querySelectorAll('img')].filter(e=>e.complete&&e.naturalWidth===0&&e.getAttribute('src')).map(e=>e.getAttribute('src')),candidates};
    });
    records.push({route:route.route,width,status:res.status(),...info,errors:[...errors]});
-   require(res.status()===200,url+' HTTP '+res.status());require(info.h1===1,url+' H1 '+info.h1);require(info.overflow<=2,url+' overflow at '+width);
+   require(res.status()===200,url+' HTTP '+res.status());require(info.h1===1,url+' H1 '+info.h1);require(!info.headingErrors.length,url+' heading hierarchy '+info.headingErrors.join('; '));require(info.overflow<=2,url+' overflow at '+width);
    if(route.route!=='/')require(info.gap!==null&&Math.abs(info.gap)<=2,url+' gap '+info.gap+' at '+width);
    require(!info.missingImages.length,url+' broken images at '+width);
    require(!errors.length,url+' runtime or local asset error '+errors.join('; '));
