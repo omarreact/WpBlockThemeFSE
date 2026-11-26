@@ -34,7 +34,7 @@ function pin_source_layout_render( $attrs, $content ) {
 }
 function pin_source_element_render( $attrs ) {
     $tag = $attrs['tagName'] ?? 'span';
-    if ( ! in_array( $tag, array( 'img', 'a', 'span', 'button', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 'small' ), true ) ) { $tag = 'span'; }
+    if ( ! in_array( $tag, array( 'img', 'a', 'span', 'button', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 'small', 'i', 'b' ), true ) ) { $tag = 'span'; }
     $out = pin_source_open_tag( $tag, $attrs );
     return 'img' === $tag ? $out : $out . esc_html( (string) ( $attrs['content'] ?? '' ) ) . '</' . $tag . '>';
 }

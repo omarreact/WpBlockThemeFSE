@@ -15,7 +15,13 @@ try{
   for(const p of [src,wp]){await p.evaluate(async()=>{await document.fonts.ready;await Promise.all(Array.from(document.images).filter(x=>x.complete).map(x=>x.decode().catch(()=>{})));});}
   const measure=p=>p.evaluate(()=>{const m=document.querySelector('main#main-content'),r=m.getBoundingClientRect();return {x:r.x,width:r.width,top:r.top,sections:[...m.querySelectorAll(':scope > section')].map(x=>x.className),header:!!document.querySelector('.mgl2-header'),footer:!!document.querySelector('.main-footer'),horizontalOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth}});
   const a=await measure(src),b=await measure(wp);
-  results.push({slug,width,source:a,wordpress:b,errors});
+  const accessibility=await wp.evaluate(()=>{
+    const visible=e=>e.getClientRects().length>0&&getComputedStyle(e).visibility!=='hidden';
+    const name=e=>(e.getAttribute('aria-label')||e.getAttribute('title')||e.textContent||'').trim()||[...e.querySelectorAll('img[alt]')].map(x=>x.alt).join(' ').trim();
+    const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);
+    return {imagesWithoutAlt:[...document.images].filter(e=>!e.hasAttribute('alt')).map(e=>e.getAttribute('src')),unnamedVisibleButtons:[...document.querySelectorAll('button')].filter(e=>visible(e)&&!name(e)).map(e=>e.className),unnamedVisibleLinks:[...document.querySelectorAll('a[href]')].filter(e=>visible(e)&&!name(e)).map(e=>e.getAttribute('href')),duplicateIds:[...new Set(ids.filter((id,i)=>ids.indexOf(id)!==i))]};
+  });
+  results.push({slug,width,source:a,wordpress:b,errors,accessibility});
   assert.equal(b.header,true,'Missing source header');assert.equal(b.footer,true,'Missing source footer');
   assert.deepEqual(b.sections,a.sections,'Section classes/order differ '+slug);
   assert(Math.abs(a.width-b.width)<=2,'Main width differs '+slug+' '+width);

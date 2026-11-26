@@ -345,10 +345,11 @@ class Builder:
         leafsafe = all(re.fullmatch(r"(?:class|id|role|title|lang|dir|tabindex|hidden|style|aria-[a-z0-9_-]+|data-[a-z0-9_-]+|href|src|srcset|sizes|alt|width|height|loading|decoding|fetchpriority|target|rel|type|disabled)", key) for key in node.attrs)
         children = [c for c in node.children if c.tag is not None or c.text.strip()]
         structural = tag in {"main", "section", "article", "aside", "div", "header", "footer", "nav", "ul", "ol", "li"}
-        widget = re.search(r"(?:swiper|carousel|slider|accordion|tabs|preloader|owl-)", classes, re.I)
+        # Keep transient loaders atomic; preserve slider/accordion/card structure as nested blocks.
+        widget = re.search(r"(?:preloader|swiper-notification)", classes, re.I)
         # Plain source images, text labels and links retain their tag, attributes and
         # exact text; the editor exposes URL/media/alt/text controls without HTML editing.
-        if leafsafe and tag in {"img", "a", "span", "button", "p", "h1", "h2", "h3", "h4", "h5", "h6", "strong", "em", "small"} and all(c.tag is None for c in node.children):
+        if leafsafe and tag in {"img", "a", "span", "button", "p", "h1", "h2", "h3", "h4", "h5", "h6", "strong", "em", "small", "i", "b"} and all(c.tag is None for c in node.children):
             if tag == "img" and not node.attrs.get("src"):
                 return self.fallback(node, base)
             return self.native("pin/source-element", "", {"tagName":tag,"sourceAttrs":self.source_attrs(node,base),"content":self.text(node)})

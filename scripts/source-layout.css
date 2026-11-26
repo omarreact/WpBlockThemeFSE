@@ -6,3 +6,9 @@ body.pin-source-edge .wp-site-blocks>*{margin-block-start:0!important}
 body.pin-source-edge .wp-site-blocks .page-wrapper{max-width:none}
 body.pin-source-edge .wp-block-post-content>*{margin-block-start:0}
 .editor-styles-wrapper .block-editor-block-list__layout .wp-block-pin-source-layout{max-width:none}
+
+/* Editor-only: expose all source slides and accordion panels for editing. No website script runs in the editor. */
+.editor-styles-wrapper .wp-block-pin-source-layout.swiper{overflow:visible!important}
+.editor-styles-wrapper .wp-block-pin-source-layout.swiper-wrapper{display:flex!important;flex-direction:column!important;transform:none!important;height:auto!important}
+.editor-styles-wrapper .wp-block-pin-source-layout.swiper-slide{width:100%!important;max-width:100%!important;opacity:1!important;visibility:visible!important;transform:none!important}
+.editor-styles-wrapper .wp-block-pin-source-layout.acc-content{display:block!important;height:auto!important;visibility:visible!important;opacity:1!important}

@@ -43,6 +43,12 @@ source_assert(count(pin_local_import_batch(true)['ids'])===52,'Repeat import fai
 $all = implode("\n",array_column(pin_local_pages(),'content'));
 source_assert(str_contains($all,'wp:pin/source-element'),'No editable source elements generated');
 source_assert(str_contains($header->content,'wp:pin/source-element'),'No editable header links or labels');
+$tree=parse_blocks($home->post_content);
+$layout_classes=[];
+function collect_source_classes($blocks,&$classes){foreach($blocks as $b){if($b['blockName']==='pin/source-layout')$classes[]=$b['attrs']['sourceAttrs']['class']??'';if(!empty($b['innerBlocks']))collect_source_classes($b['innerBlocks'],$classes);}}
+collect_source_classes($tree,$layout_classes);
+source_assert(in_array('swiper-wrapper',$layout_classes,true),'Slider children not editable');
+source_assert(in_array('accordion-box',$layout_classes,true),'Accordion children not editable');
 $fixture='<!-- wp:pin/source-layout {"tagName":"section","sourceAttrs":{"class":"pin-editor-fixture"}} --><!-- wp:pin/source-element {"tagName":"p","sourceAttrs":{"class":"fixture-text"},"content":"Original editor fixture"} /--><!-- /wp:pin/source-layout -->';
 $id=wp_insert_post(wp_slash(['post_type'=>'page','post_status'=>'publish','post_name'=>'pin-editor-fixture','post_title'=>'PIN editor fixture','post_content'=>$fixture]),true);
 source_assert(!is_wp_error($id)&&$id>0,'Editor fixture failed');
